@@ -7,6 +7,7 @@ import os
 import subprocess
 import zipfile
 import requests
+import yfinance as yf
 
 # Indian Standard Time (IST) offset
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
@@ -14,38 +15,18 @@ IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 # Shared headers for direct NSE web requests
 NSE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
     "Referer": "https://www.nseindia.com/"
 }
 
 
 def get_next_trading_day(d):
-    """Calculates the next trading day, skipping weekends (Saturday and Sunday)."""
+    """Calculates the next trading day, skipping weekends."""
     next_day = d + datetime.timedelta(days=1)
-    while next_day.weekday() >= 5:  # 5 is Saturday, 6 is Sunday
+    while next_day.weekday() >= 5:
         next_day += datetime.timedelta(days=1)
     return next_day
-
-
-def push_to_github():
-    try:
-        subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
-        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
-        
-        subprocess.run(["git", "add", "-f", "data.json"], check=False)
-        if os.path.exists("bhavcopy.csv"):
-            subprocess.run(["git", "add", "-f", "bhavcopy.csv"], check=False)
-        
-        diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
-        
-        if diff_check.returncode != 0:
-            subprocess.run(["git", "commit", "-m", "Auto-update dashboard and bhavcopy status [skip ci]"], check=True)
-            subprocess.run(["git", "push", "origin", "main"], check=True)
-            print("Changes pushed to GitHub successfully.")
-        else:
-            print("No changes detected in repository. Skipping commit.")
-    except Exception as e:
-        print(f"Git push failed: {e}")
 
 
 def get_nse_session():
@@ -56,6 +37,21 @@ def get_nse_session():
     except Exception as e:
         print(f"Warning initializing NSE session: {e}")
     return session
+
+
+def fetch_spot_price_fallback():
+    """Fallback spot price fetch using yfinance when NSE direct requests fail."""
+    try:
+        print("Attempting spot price fetch via yfinance fallback...")
+        ticker = yf.Ticker("^NSEI")
+        data = ticker.history(period="1d")
+        if not data.empty:
+            spot = float(data['Close'].iloc[-1])
+            print(f"Fetched fallback spot price from yfinance: {spot}")
+            return spot
+    except Exception as e:
+        print(f"yfinance fallback failed: {e}")
+    return 0.0
 
 
 def fetch_nse_option_chain():
@@ -70,20 +66,27 @@ def fetch_nse_option_chain():
             return data, spot
     except Exception as e:
         print(f"Failed to fetch option chain from NSE: {e}")
-    return None, 0.0
+
+    # Attempt fallback if direct fetch failed
+    spot = fetch_spot_price_fallback()
+    return None, spot
 
 
 def get_expiries_from_chain(chain_raw_data):
-    """Extracts weekly and monthly expiries from direct NSE option chain data."""
+    """Extracts weekly and monthly expiries from option chain data."""
     now_ist = datetime.datetime.now(IST)
     today_str = now_ist.strftime("%Y-%m-%d")
-    
+
+    if not chain_raw_data:
+        # Default fallback expiry estimates
+        return today_str, today_str
+
     records = chain_raw_data.get("records", {})
     expiry_dates = records.get("expiryDates", [])
-    
+
     if not expiry_dates:
         return today_str, today_str
-        
+
     formatted_expiries = []
     for exp in expiry_dates:
         try:
@@ -91,14 +94,14 @@ def get_expiries_from_chain(chain_raw_data):
             formatted_expiries.append(dt.strftime("%Y-%m-%d"))
         except Exception:
             continue
-            
+
     formatted_expiries = sorted(list(set(formatted_expiries)))
     future_exp = [e for e in formatted_expiries if e >= today_str]
     w_exp = future_exp[0] if future_exp else (formatted_expiries[-1] if formatted_expiries else today_str)
-    
+
     m_exp = [e for e in formatted_expiries if e.startswith(today_str[:7])]
     m_exp = m_exp[-1] if m_exp else w_exp
-    
+
     return w_exp, m_exp
 
 
@@ -108,12 +111,12 @@ def download_today_bhavcopy():
     yyyy = now_ist.strftime("%Y")
     mm = now_ist.strftime("%m")
     dd = now_ist.strftime("%d")
-    
+
     url = f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{yyyy}{mm}{dd}_F_0000.csv.zip"
     try:
         session = get_nse_session()
         response = session.get(url, headers=NSE_HEADERS, timeout=30)
-        
+
         if response.status_code == 200 and len(response.content) > 1000:
             if os.path.exists("bhavcopy.csv"):
                 try: os.remove("bhavcopy.csv")
@@ -124,14 +127,14 @@ def download_today_bhavcopy():
                 with z.open(csv_filename) as csv_file:
                     content = csv_file.read().decode('utf-8', errors='ignore')
                     lines = content.splitlines()
-                    
+
                     nifty_lines = []
                     if lines:
                         nifty_lines.append(lines[0])
                         for line in lines[1:]:
                             if "NIFTY" in line.upper():
                                 nifty_lines.append(line)
-                    
+
                     with open("bhavcopy.csv", "w", encoding="utf-8") as f:
                         f.write("\n".join(nifty_lines))
 
@@ -139,7 +142,7 @@ def download_today_bhavcopy():
             return True
     except Exception as e:
         print(f"Today's Bhavcopy is not available yet: {e}")
-        
+
     return False
 
 
@@ -151,7 +154,7 @@ def load_bhavcopy_dict(target_expiry_str):
     possible_expiries = set()
     clean_target = target_expiry_str.strip().upper()
     possible_expiries.add(clean_target)
-    
+
     try:
         dt_obj = datetime.datetime.strptime(clean_target, "%Y-%m-%d")
         possible_expiries.add(dt_obj.strftime("%Y-%m-%d"))
@@ -186,8 +189,8 @@ def load_bhavcopy_dict(target_expiry_str):
                     continue
 
                 expiry_raw = (cleaned_row.get("XPRYDT") or cleaned_row.get("EXPIRY_DT") or 
-                             cleaned_row.get("EXPIRY") or "").strip().upper()
-                
+                              cleaned_row.get("EXPIRY") or "").strip().upper()
+
                 if any(expiry_raw == exp for exp in possible_expiries):
                     open_p = float(cleaned_row.get("OPENPRIC") or cleaned_row.get("OPEN") or 0.0)
                     high = float(cleaned_row.get("HGHPRIC") or cleaned_row.get("HIGH") or 0.0)
@@ -209,15 +212,17 @@ def get_strike_close_price(bhav_map, item, strike, opt_type):
     data_dict = bhav_map.get((strike, opt_type), {})
     if data_dict.get("close", 0.0) > 0:
         return data_dict["close"]
-    
-    opts = item.get("CE", {}) if opt_type == "CE" else item.get("PE", {})
-    return float(opts.get("closePrice") or opts.get("lastPrice") or 0.0)
+
+    if item:
+        opts = item.get("CE", {}) if opt_type == "CE" else item.get("PE", {})
+        return float(opts.get("closePrice") or opts.get("lastPrice") or 0.0)
+    return 0.0
 
 
 def get_market_sentiment_tag(data_dict):
     if not data_dict:
         return "NEUTRAL", "tag-neutral"
-    
+
     close = data_dict.get("close", 0.0)
     open_p = data_dict.get("open", 0.0)
     high = data_dict.get("high", 0.0)
@@ -230,12 +235,11 @@ def get_market_sentiment_tag(data_dict):
             return "BUYERS", "tag-buyers"
         else:
             return "SELLERS", "tag-sellers"
-            
+
     return "NEUTRAL", "tag-neutral"
 
 
 def calculate_zone_row_one(wl, wh, bhav_map, chain_data):
-    """Calculates Row 1 Upper and Lower Zones using floor (wl) and ceiling (wh) strikes only."""
     def get_p(s, t):
         p = bhav_map.get((s, t), {}).get("close", 0.0)
         if p > 0: return p
@@ -247,25 +251,23 @@ def calculate_zone_row_one(wl, wh, bhav_map, chain_data):
                 return float(opts.get("closePrice") or opts.get("lastPrice") or 0.0)
         return 0.0
 
-    ce_close = get_p(wh, "CE")  # CE close at Ceiling Strike (wh)
-    pe_close = get_p(wl, "PE")  # PE close at Floor Strike (wl)
+    ce_close = get_p(wh, "CE")
+    pe_close = get_p(wl, "PE")
 
     return {
-        "line1": round(wh + ce_close, 2),  # Upper Zone: Ceiling Strike + CE Close
-        "line2": round(wl - pe_close, 2)   # Lower Zone: Floor Strike - PE Close
+        "line1": round(wh + ce_close, 2),
+        "line2": round(wl - pe_close, 2)
     }
 
 
 def process_and_save_data(chain_raw_data, spot, w_exp, m_exp):
-    data = chain_raw_data.get("records", {}).get("data", [])
-    if not data or spot <= 0:
-        print("Invalid data or spot price received.")
-        return
+    data = chain_raw_data.get("records", {}).get("data", []) if chain_raw_data else []
+    if spot <= 0:
+        raise ValueError("Invalid spot price received.")
 
     now_ist = datetime.datetime.now(IST)
     actual_today_str = now_ist.strftime("%d %b %Y").upper()
-    
-    # Calculate next trading day for display
+
     next_trading_date = get_next_trading_day(now_ist)
     display_date_str = next_trading_date.strftime("%d %b %Y").upper()
 
@@ -314,7 +316,7 @@ def process_and_save_data(chain_raw_data, spot, w_exp, m_exp):
         item_strike = item.get("strikePrice")
         if item_strike is None: continue
         s_val = int(round(float(item_strike)))
-        
+
         call_opts = item.get("CE", {})
         put_opts = item.get("PE", {})
 
@@ -352,7 +354,6 @@ def process_and_save_data(chain_raw_data, spot, w_exp, m_exp):
     max_supply_val = round(hlc_atm_strike + (ce_close + pe_close), 2)
     max_demand_val = round(hlc_atm_strike - (ce_close + pe_close), 2)
 
-    # Compute Floor (wl) and Ceiling (wh) strikes for Row 1
     wl = int(math.floor(spot / 100.0) * 100)
     wh = int(math.ceil(spot / 100.0) * 100)
 
@@ -364,14 +365,14 @@ def process_and_save_data(chain_raw_data, spot, w_exp, m_exp):
         "bhavcopyReady": bhavcopy_is_ready,
         "currentDate": display_date_str,
         "lastExecutionDate": actual_today_str,
-        "expiryDate": datetime.datetime.strptime(w_exp, "%Y-%m-%d").strftime("%d-%b-%Y").upper(),
+        "expiryDate": w_exp,
         "spotPrice": spot,
         "hlcAtmStrike": hlc_atm_strike,
         "ce": {"high": round(ce_high, 2), "close": round(ce_close, 2), "low": round(ce_low, 2)},
         "pe": {"high": round(pe_high, 2), "close": round(pe_close, 2), "low": round(pe_low, 2)},
         "ceTag": ce_tag, "ceClass": ce_class,
         "peTag": pe_tag, "peClass": pe_class,
-        "bannerTotal": round(abs(ce_close - pe_close), 2),  # Direct absolute CE - PE difference
+        "bannerTotal": round(abs(ce_close - pe_close), 2),
         "minSupply": min_supply_val,
         "minDemand": min_demand_val,
         "maxSupply": max_supply_val,
@@ -394,28 +395,16 @@ def process_and_save_data(chain_raw_data, spot, w_exp, m_exp):
 
     with open("data.json", "w") as f:
         json.dump(payload, f, indent=4)
-        
+
     print(f"Data saved. Bhavcopy status: {bhavcopy_is_ready}")
-    push_to_github()
 
 
 if __name__ == "__main__":
-    if os.path.exists("data.json"):
-        try:
-            with open("data.json", "r") as f:
-                existing_data = json.load(f)
-                now_ist = datetime.datetime.now(IST)
-                actual_today_str = now_ist.strftime("%d %b %Y").upper()
-                
-                if existing_data.get("lastExecutionDate") == actual_today_str and existing_data.get("bhavcopyReady") is True:
-                    print("✅ Bhavcopy already successfully fetched and saved for today. Skipping execution.")
-                    exit(0)
-        except Exception:
-            pass
-
     chain_raw_data, spot = fetch_nse_option_chain()
-    if chain_raw_data and spot > 0:
+    
+    if spot > 0:
         w_exp, m_exp = get_expiries_from_chain(chain_raw_data)
         process_and_save_data(chain_raw_data, spot, w_exp, m_exp)
     else:
-        print("Failed to fetch live option chain or spot price from NSE.")
+        # Raise error explicitly so GitHub Actions marks run as FAILED instead of passing cleanly
+        raise Exception("Fatal Error: Could not fetch option chain or spot price from both NSE and yfinance.")
