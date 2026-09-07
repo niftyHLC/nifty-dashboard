@@ -1,66 +1,58 @@
 const CACHE_NAME = 'nifty-dashboard-v1';
 const STATIC_ASSETS = [
-    './',
-    './index.html',
-    './manifest.json',
-    './icon-192.png',
-    './icon-512.png'
+  './',
+  './index.html',
+  './manifest.json'
 ];
 
-// Install Event - Pre-cache core shell UI
+// 1. Install Event - Pre-cache core UI assets
 self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(STATIC_ASSETS);
-        })
-    );
-    self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS);
+    }).then(() => self.skipWaiting())
+  );
 });
 
-// Activate Event - Clean up old cache versions
+// 2. Activate Event - Clean up old caches
 self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cache) => {
-                    if (cache !== CACHE_NAME) {
-                        return caches.delete(cache);
-                    }
-                })
-            );
-        })
-    );
-    self.clients.claim();
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      );
+    }).then(() => self.clients.claim())
+  );
 });
 
-// Fetch Event - Dynamic routing strategy
+// 3. Fetch Event - Handle Live Data vs Static Assets
 self.addEventListener('fetch', (event) => {
-    const requestUrl = new URL(event.request.url);
+  const url = new URL(event.request.url);
 
-    // Strategy 1: Network-First with Cache Fallback for dynamic data (data.json)
-    if (requestUrl.pathname.endsWith('data.json')) {
-        event.respondWith(
-            fetch(event.request)
-                .then((networkResponse) => {
-                    if (networkResponse.ok) {
-                        const responseClone = networkResponse.clone();
-                        caches.open(CACHE_NAME).then((cache) => {
-                            cache.put(event.request, responseClone);
-                        });
-                    }
-                    return networkResponse;
-                })
-                .catch(() => {
-                    return caches.match(event.request, { ignoreSearch: true });
-                })
-        );
-        return;
-    }
-
-    // Strategy 2: Cache-First with Network Fallback for UI assets
+  // Strategy for data.json: Network-only with cache fallback
+  if (url.pathname.includes('data.json')) {
     event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            return cachedResponse || fetch(event.request);
+      fetch(event.request)
+        .then((response) => {
+          // Clone and store fresh JSON data in cache
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          return response;
         })
+        .catch(() => caches.match(event.request)) // Fallback to last known cached JSON if offline
     );
+    return;
+  }
+
+  // Strategy for App Shell (HTML, icons): Cache First, fallback to Network
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request);
+    })
+  );
 });
