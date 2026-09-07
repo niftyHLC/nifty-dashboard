@@ -1,102 +1,447 @@
-def download_and_parse_bhavcopy():
-    """
-    Downloads the latest NSE FO Bhavcopy ZIP and dynamically maps UDiFF columns.
-    """
+import csv
+import datetime
+import io
+import json
+import math
+import os
+import subprocess
+import zipfile
+import requests
+
+# Indian Standard Time (IST) offset
+IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+
+
+def push_to_github():
+    try:
+        subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
+        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
+        
+        subprocess.run(["git", "add", "-f", "data.json"], check=False)
+        if os.path.exists("bhavcopy.csv"):
+            subprocess.run(["git", "add", "-f", "bhavcopy.csv"], check=False)
+        
+        diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
+        
+        if diff_check.returncode != 0:
+            subprocess.run(["git", "commit", "-m", "Auto-update dashboard and bhavcopy status [skip ci]"], check=True)
+            subprocess.run(["git", "push", "origin", "main"], check=True)
+            print("Changes pushed to GitHub successfully.")
+        else:
+            print("No changes detected in repository. Skipping commit.")
+    except Exception as e:
+        print(f"Git push failed: {e}")
+
+
+def fetch_nse_session():
+    """Initializes a requests session with proper NSE headers and cookies."""
+    session = requests.Session()
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "*/*"
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Referer": "https://www.nseindia.com/"
+    }
+    session.headers.update(headers)
+    try:
+        # Hit homepage first to collect valid cookies required by NSE backend
+        session.get("https://www.nseindia.com", timeout=10)
+    except Exception as e:
+        print(f"Warning: Failed to prime NSE session cookies: {e}")
+    return session
+
+
+def fetch_live_spot_and_chain():
+    """Fetches Nifty live spot price and option chain directly from NSE public endpoints."""
+    session = fetch_nse_session()
+    url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+    
+    try:
+        response = session.get(url, timeout=15)
+        if response.status_code == 200:
+            res_json = response.json()
+            records = res_json.get("records", {})
+            spot = float(records.get("underlyingValue", 0.0))
+            return spot, res_json
+        else:
+            print(f"Failed to fetch NSE option chain. Status code: {response.status_code}")
+    except Exception as e:
+        print(f"Failed to fetch live spot price and chain from NSE: {e}")
+        
+    return 0.0, None
+
+
+def get_expiries_from_chain(res_json):
+    """Extracts weekly and monthly expiries from the NSE option chain payload."""
+    try:
+        records = res_json.get("records", {})
+        expiry_list = records.get("expiryDates", [])
+        if not expiry_list:
+            return None, None
+            
+        now_ist = datetime.datetime.now(IST)
+        today_str = now_ist.strftime("%Y-%m-%d")
+        
+        parsed_expiries = []
+        for exp_str in expiry_list:
+            # NSE format is typically 'DD-MMM-YYYY' e.g. '26-Sep-2026'
+            try:
+                dt = datetime.datetime.strptime(exp_str, "%d-%b-%Y")
+                parsed_expiries.append((dt.strftime("%Y-%m-%d"), exp_str))
+            except Exception:
+                continue
+                
+        parsed_expiries.sort(key=lambda x: x[0])
+        
+        future_exp = [e for e in parsed_expiries if e[0] >= today_str]
+        w_exp_raw = future_exp[0][1] if future_exp else parsed_expiries[-1][1]
+        
+        # Monthly expiry heuristic: last expiry matching the month of w_exp_raw or current month
+        month_prefix = w_exp_raw[3:] # e.g. 'Sep-2026'
+        matching_month_exp = [e[1] for e in parsed_expiries if e[1].endswith(month_prefix)]
+        m_exp_raw = matching_month_exp[-1] if matching_month_exp else w_exp_raw
+        
+        return w_exp_raw, m_exp_raw
+    except Exception as e:
+        print(f"Error parsing expiries: {e}")
+        
+    now_str = datetime.datetime.now(IST).strftime("%d-%b-%Y").upper()
+    return now_str, now_str
+
+
+def download_today_bhavcopy():
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.nseindia.com/"
+    }
+    now_ist = datetime.datetime.now(IST)
+    yyyy = now_ist.strftime("%Y")
+    mm = now_ist.strftime("%m")
+    dd = now_ist.strftime("%d")
+    
+    url = f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{yyyy}{mm}{dd}_F_0000.csv.zip"
+    try:
+        session = requests.Session()
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
+        response = session.get(url, headers=headers, timeout=30)
+        
+        if response.status_code == 200 and len(response.content) > 1000:
+            if os.path.exists("bhavcopy.csv"):
+                try: os.remove("bhavcopy.csv")
+                except Exception: pass
+
+            with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+                csv_filename = z.namelist()[0]
+                with z.open(csv_filename) as csv_file:
+                    content = csv_file.read().decode('utf-8', errors='ignore')
+                    lines = content.splitlines()
+                    
+                    nifty_lines = []
+                    if lines:
+                        nifty_lines.append(lines[0])
+                        for line in lines[1:]:
+                            if "NIFTY" in line.upper():
+                                nifty_lines.append(line)
+                    
+                    with open("bhavcopy.csv", "w", encoding="utf-8") as f:
+                        f.write("\n".join(nifty_lines))
+
+            print(f"Successfully downloaded TODAY'S Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
+            return True
+    except Exception as e:
+        print(f"Today's Bhavcopy is not available yet: {e}")
+        
+    return False
+
+
+def load_bhavcopy_dict(target_expiry_str):
+    bhav_map = {}
+    if not os.path.exists("bhavcopy.csv"):
+        return bhav_map
+
+    possible_expiries = set()
+    clean_target = target_expiry_str.strip().upper()
+    possible_expiries.add(clean_target)
+    
+    try:
+        dt_obj = datetime.datetime.strptime(clean_target, "%Y-%m-%d")
+        possible_expiries.add(dt_obj.strftime("%Y-%m-%d"))
+        possible_expiries.add(dt_obj.strftime("%d-%b-%Y").upper())
+        possible_expiries.add(dt_obj.strftime("%d-%B-%Y").upper())
+        possible_expiries.add(dt_obj.strftime("%d%b%Y").upper())
+        possible_expiries.add(dt_obj.strftime("%d%b%y").upper())
+    except Exception:
+        try:
+            dt_obj = datetime.datetime.strptime(clean_target, "%d-%b-%Y")
+            possible_expiries.add(dt_obj.strftime("%Y-%m-%d"))
+            possible_expiries.add(dt_obj.strftime("%d-%b-%Y").upper())
+        except Exception:
+            pass
+
+    try:
+        with open("bhavcopy.csv", mode="r", encoding="utf-8", errors="ignore") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                cleaned_row = {k.strip().upper(): (v.strip() if v else "") for k, v in row.items() if k}
+                symbol = cleaned_row.get("TCKRSYMB") or cleaned_row.get("SYMBOL") or cleaned_row.get("FININSTRNM") or ""
+                if "NIFTY" not in symbol.upper():
+                    continue
+
+                strike_raw = (cleaned_row.get("STRKPRIC") or cleaned_row.get("STRIKEPRIC") or 
+                             cleaned_row.get("STRIKE_PR") or cleaned_row.get("STRIKE") or "0")
+                try:
+                    row_strike = int(round(float(strike_raw)))
+                except ValueError:
+                    continue
+
+                opt_type_raw = (cleaned_row.get("OPTNTP") or cleaned_row.get("OPTION_TYP") or 
+                                cleaned_row.get("OPTIONTYPE") or "")
+                opt_type = "CE" if "CE" in opt_type_raw.upper() else "PE" if "PE" in opt_type_raw.upper() else ""
+
+                if not opt_type:
+                    continue
+
+                expiry_raw = (cleaned_row.get("XPRYDT") or cleaned_row.get("EXPIRY_DT") or 
+                              cleaned_row.get("EXPIRY") or "").strip().upper()
+                
+                if any(expiry_raw == exp for exp in possible_expiries):
+                    open_p = float(cleaned_row.get("OPENPRIC") or cleaned_row.get("OPEN") or 0.0)
+                    high = float(cleaned_row.get("HGHPRIC") or cleaned_row.get("HIGH") or 0.0)
+                    low = float(cleaned_row.get("LWPRIC") or cleaned_row.get("LOW") or 0.0)
+                    close = float(cleaned_row.get("CLSPRIC") or cleaned_row.get("CLOSE") or cleaned_row.get("SETTLE_PR") or 0.0)
+                    chg_oi = float(cleaned_row.get("CHGINOI") or cleaned_row.get("CHG_IN_OI") or 0.0)
+
+                    if high > 0 or low > 0 or close > 0:
+                        bhav_map[(row_strike, opt_type)] = {
+                            "open": open_p, "high": high, "low": low, "close": close, "chg_oi": chg_oi
+                        }
+    except Exception as e:
+        print(f"Error reading bhavcopy into dict: {e}")
+
+    return bhav_map
+
+
+def get_strike_close_price(bhav_map, item, strike, opt_type):
+    data_dict = bhav_map.get((strike, opt_type), {})
+    if data_dict.get("close", 0.0) > 0:
+        return data_dict["close"]
+    
+    opts = item.get("CE", {}) if opt_type == "CE" else item.get("PE", {})
+    return float(opts.get("closePrice") or opts.get("lastPrice") or 0.0)
+
+
+def get_market_sentiment_tag(data_dict):
+    if not data_dict:
+        return "NEUTRAL", "tag-neutral"
+    
+    close = data_dict.get("close", 0.0)
+    open_p = data_dict.get("open", 0.0)
+    high = data_dict.get("high", 0.0)
+    low = data_dict.get("low", 0.0)
+    chg_oi = data_dict.get("chg_oi", 0.0)
+
+    price_up = close >= open_p
+    if chg_oi > 0:
+        if price_up or (high - low > 0 and (close - low) / (high - low) > 0.5):
+            return "BUYERS", "tag-buyers"
+        else:
+            return "SELLERS", "tag-sellers"
+            
+    return "NEUTRAL", "tag-neutral"
+
+
+def calculate_zone_row_one(wl, wh, bhav_map, chain_data, target_expiry):
+    def get_p(s, t):
+        p = bhav_map.get((s, t), {}).get("close", 0.0)
+        if p > 0: return p
+        if not chain_data: return 0.0
+        
+        for item in chain_data.get("records", {}).get("data", []):
+            if int(round(float(item.get("strikePrice", 0)))) == s:
+                opts = item.get("CE", {}) if t == "CE" else item.get("PE", {})
+                if opts.get("expiryDate") == target_expiry:
+                    return float(opts.get("closePrice") or opts.get("lastPrice") or 0.0)
+        return 0.0
+
+    ce1, pe1 = get_p(wl, "CE"), get_p(wl, "PE")
+    ce2, pe2 = get_p(wh, "CE"), get_p(wh, "PE")
+
+    return {
+        "line1": round(wh + ce2, 2),  # Upper Zone value (Red)
+        "line2": round(wl - pe1, 2)   # Lower Zone value (Green)
     }
 
-    target_date = get_latest_trading_day()
 
-    for _ in range(5):
-        ymd_str = target_date.strftime("%Y%m%d")
-        date_formatted = target_date.strftime("%d-%b-%Y").upper()
+def process_and_save_data(res_json, spot, w_exp, m_exp):
+    records = res_json.get("records", {})
+    data = records.get("data", [])
+    if not data or spot <= 0:
+        print("Invalid data or spot price received.")
+        return
 
-        zip_url = f"https://archives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{ymd_str}_F_0000.csv.zip"
+    now_ist = datetime.datetime.now(IST)
+    today_str = now_ist.strftime("%d %b %Y").upper()
+
+    bhavcopy_is_ready = download_today_bhavcopy()
+    w_bhav = load_bhavcopy_dict(w_exp)
+    m_bhav = load_bhavcopy_dict(m_exp)
+
+    min_diff = float('inf')
+    hlc_atm_strike = int(round(spot / 50.0) * 50)
+
+    for item in data:
+        if item.get("expiryDate") != w_exp:
+            continue
+        item_strike = item.get("strikePrice")
+        if item_strike is None: continue
+        s_val = int(round(float(item_strike)))
+        if abs(s_val - spot) > 500: continue
+
+        ce_close = get_strike_close_price(w_bhav, item, s_val, "CE")
+        pe_close = get_strike_close_price(w_bhav, item, s_val, "PE")
+
+        if ce_close > 0 and pe_close > 0:
+            diff = abs(ce_close - pe_close)
+            if diff < min_diff:
+                min_diff = diff
+                hlc_atm_strike = s_val
+
+    sniper1_atm_strike = int(round(spot / 100.0) * 100)
+    sniper2_atm_strike = hlc_atm_strike
+
+    target_s1_ce_strike = sniper1_atm_strike + 100
+    target_s1_pe_strike = sniper1_atm_strike - 100
+    target_s2_ce_strike = sniper2_atm_strike + 100
+    target_s2_pe_strike = sniper2_atm_strike - 100
+
+    ce_dict = w_bhav.get((int(hlc_atm_strike), "CE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0})
+    pe_dict = w_bhav.get((int(hlc_atm_strike), "PE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0})
+
+    ce_high, ce_low, ce_close = ce_dict.get("high", 0.0), ce_dict.get("low", 0.0), ce_dict.get("close", 0.0)
+    pe_high, pe_low, pe_close = pe_dict.get("high", 0.0), pe_dict.get("low", 0.0), pe_dict.get("close", 0.0)
+
+    s1_atm_ce_val, s1_atm_pe_val = 0.0, 0.0
+    s2_atm_ce_val, s2_atm_pe_val = 0.0, 0.0
+    s1_ce_val, s1_pe_val = 0.0, 0.0
+    s2_ce_val, s2_pe_val = 0.0, 0.0
+
+    for item in data:
+        if item.get("expiryDate") != w_exp:
+            continue
+        item_strike = item.get("strikePrice")
+        if item_strike is None: continue
+        s_val = int(round(float(item_strike)))
         
-        print(f"Fetching Bhavcopy for {date_formatted} from {zip_url}...")
+        call_opts = item.get("CE", {})
+        put_opts = item.get("PE", {})
+
+        if s_val == hlc_atm_strike:
+            if ce_close == 0.0: ce_close = float(call_opts.get("closePrice") or call_opts.get("lastPrice") or 0.0)
+            if ce_high == 0.0: ce_high = float(call_opts.get("highPrice") or ce_close)
+            if ce_low == 0.0: ce_low = float(call_opts.get("lowPrice") or ce_close)
+            ce_dict["close"], ce_dict["high"], ce_dict["low"] = ce_close, ce_high, ce_low
+
+            if pe_close == 0.0: pe_close = float(put_opts.get("closePrice") or put_opts.get("lastPrice") or 0.0)
+            if pe_high == 0.0: pe_high = float(put_opts.get("highPrice") or pe_close)
+            if pe_low == 0.0: pe_low = float(put_opts.get("lowPrice") or pe_close)
+            pe_dict["close"], pe_dict["high"], pe_dict["low"] = pe_close, pe_high, pe_low
+
+        if s_val == sniper1_atm_strike:
+            s1_atm_ce_val = get_strike_close_price(w_bhav, item, s_val, "CE")
+            s1_atm_pe_val = get_strike_close_price(w_bhav, item, s_val, "PE")
+        if s_val == target_s1_ce_strike: s1_ce_val = get_strike_close_price(w_bhav, item, s_val, "CE")
+        if s_val == target_s1_pe_strike: s1_pe_val = get_strike_close_price(w_bhav, item, s_val, "PE")
+
+        if s_val == sniper2_atm_strike:
+            s2_atm_ce_val = get_strike_close_price(w_bhav, item, s_val, "CE")
+            s2_atm_pe_val = get_strike_close_price(w_bhav, item, s_val, "PE")
+        if s_val == target_s2_ce_strike: s2_ce_val = get_strike_close_price(w_bhav, item, s_val, "CE")
+        if s_val == target_s2_pe_strike: s2_pe_val = get_strike_close_price(w_bhav, item, s_val, "PE")
+
+    ce_tag, ce_class = get_market_sentiment_tag(ce_dict)
+    pe_tag, pe_class = get_market_sentiment_tag(pe_dict)
+
+    sniper1_val = round((s1_ce_val + s1_pe_val) / 2.0, 2)
+    sniper2_val = round((s2_ce_val + s2_pe_val) / 2.0, 2)
+
+    min_supply_val = round(hlc_atm_strike + ce_close, 2)
+    min_demand_val = round(hlc_atm_strike - pe_close, 2)
+    max_supply_val = round(hlc_atm_strike + (ce_close + pe_close), 2)
+    max_demand_val = round(hlc_atm_strike - (ce_close + pe_close), 2)
+
+    wl = int(math.floor(spot / 100.0) * 100)
+    wh = int(math.ceil(spot / 100.0) * 100)
+
+    weekly_zones = calculate_zone_row_one(wl, wh, w_bhav, res_json, w_exp)
+    
+    # If monthly expiry differs, fetch corresponding chain data if needed, or re-use current chain structure
+    monthly_zones = calculate_zone_row_one(wl, wh, m_bhav, res_json, m_exp)
+
+    formatted_expiry = ""
+    try:
+        formatted_expiry = datetime.datetime.strptime(w_exp, "%d-%b-%Y").strftime("%d-%b-%Y").upper()
+    except Exception:
+        formatted_expiry = w_exp
+
+    payload = {
+        "dataStatus": "SUCCESS",
+        "bhavcopyReady": bhavcopy_is_ready,
+        "currentDate": today_str,
+        "expiryDate": formatted_expiry,
+        "spotPrice": spot,
+        "hlcAtmStrike": hlc_atm_strike,
+        "ce": {"high": round(ce_high, 2), "close": round(ce_close, 2), "low": round(ce_low, 2)},
+        "pe": {"high": round(pe_high, 2), "close": round(pe_close, 2), "low": round(pe_low, 2)},
+        "ceTag": ce_tag, "ceClass": ce_class,
+        "peTag": pe_tag, "peClass": pe_class,
+        "bannerTotal": round(ce_close + pe_close, 2),
+        "minSupply": min_supply_val,
+        "minDemand": min_demand_val,
+        "maxSupply": max_supply_val,
+        "maxDemand": max_demand_val,
+        "weeklyZones": weekly_zones,
+        "monthlyZones": monthly_zones,
+        "spotHigh": spot,
+        "spotLow": spot,
+        "sniper1": {
+            "strike": sniper1_atm_strike, "ce": round(s1_atm_ce_val, 2), "pe": round(s1_atm_pe_val, 2),
+            "otmCeStrike": target_s1_ce_strike, "otmPeStrike": target_s1_pe_strike,
+            "otmCe": round(s1_ce_val, 2), "otmPe": round(s1_pe_val, 2), "value": sniper1_val
+        },
+        "sniper2": {
+            "strike": sniper2_atm_strike, "ce": round(s2_atm_ce_val, 2), "pe": round(s2_atm_pe_val, 2),
+            "otmCeStrike": target_s2_ce_strike, "otmPeStrike": target_s2_pe_strike,
+            "otmCe": round(s2_ce_val, 2), "otmPe": round(s2_pe_val, 2), "value": sniper2_val
+        }
+    }
+
+    with open("data.json", "w") as f:
+        json.dump(payload, f, indent=4)
+        
+    print(f"Data saved. Bhavcopy status: {bhavcopy_is_ready}")
+    push_to_github()
+
+
+if __name__ == "__main__":
+    if os.path.exists("data.json"):
         try:
-            res = requests.get(zip_url, headers=headers, timeout=15)
-            
-            if res.status_code == 200 and res.content[:4] == b'PK\x03\x04':
-                print(f"Successfully retrieved valid ZIP Bhavcopy for {date_formatted}")
+            with open("data.json", "r") as f:
+                existing_data = json.load(f)
+                now_ist = datetime.datetime.now(IST)
+                today_str = now_ist.strftime("%d %b %Y").upper()
+                
+                if existing_data.get("currentDate") == today_str and existing_data.get("bhavcopyReady") is True:
+                    print("✅ Bhavcopy already successfully fetched and saved for today. Skipping execution.")
+                    exit(0)
+        except Exception:
+            pass
 
-                with zipfile.ZipFile(io.BytesIO(res.content)) as z:
-                    csv_filename = z.namelist()[0]
-                    with z.open(csv_filename) as f:
-                        reader = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8"))
-                        fieldnames = reader.fieldnames or []
-                        
-                        def find_key(keywords):
-                            for fn in fieldnames:
-                                fn_upper = fn.strip().upper()
-                                if any(kw in fn_upper for kw in keywords):
-                                    return fn
-                            return None
-
-                        # UDiFF & Legacy flexible header matching
-                        sym_key = find_key(["TCKR", "SYMBOL", "SCTYSR", "FININSTRMID"])
-                        strike_key = find_key(["STRK", "STRIKE", "STK"])
-                        opt_key = find_key(["OPTN", "OPTION", "TYP"])
-                        close_key = find_key(["CLS", "CLOSE"])
-                        high_key = find_key(["HGH", "HIGH"])
-                        low_key = find_key(["LW", "LOW"])
-                        expiry_key = find_key(["XPRY", "EXPIRY", "XPRT", "EXPR"])
-                        inst_key = find_key(["FININSTRMTP", "INSTRUMENT", "SGMT"])
-                        und_key = find_key(["UNDRLYG", "UNDERLYING", "SPOT"])
-
-                        nifty_rows = []
-                        spot_price = 0.0
-
-                        for row in reader:
-                            symbol = row.get(sym_key, "").strip().upper() if sym_key else ""
-                            inst = row.get(inst_key, "").strip().upper() if inst_key else ""
-
-                            if "NIFTY" in symbol and "NIFTY IT" not in symbol and "NIFTY BANK" not in symbol:
-                                try:
-                                    strike = float(row.get(strike_key, 0)) if strike_key else 0.0
-                                    close_p = float(row.get(close_key, 0)) if close_key else 0.0
-                                    high_p = float(row.get(high_key, 0)) if high_key else 0.0
-                                    low_p = float(row.get(low_key, 0)) if low_key else 0.0
-                                    opt_type = row.get(opt_key, "").strip().upper() if opt_key else ""
-                                    expiry_str = row.get(expiry_key, "").strip().upper() if expiry_key else ""
-                                except ValueError:
-                                    continue
-
-                                normalized_opt = "CE" if "CE" in opt_type else ("PE" if "PE" in opt_type else "")
-
-                                if normalized_opt in ["CE", "PE"] and expiry_str:
-                                    nifty_rows.append({
-                                        "STRIKE_PR": strike,
-                                        "OPTION_TYP": normalized_opt,
-                                        "CLOSE": close_p,
-                                        "HIGH": high_p,
-                                        "LOW": low_p,
-                                        "EXPIRY_DT": expiry_str
-                                    })
-                                elif ("FUT" in inst or "FUT" in opt_type) and spot_price == 0:
-                                    if und_key and row.get(und_key):
-                                        try:
-                                            spot_price = float(row.get(und_key))
-                                        except ValueError:
-                                            pass
-
-                        if nifty_rows:
-                            print(f"Successfully parsed {len(nifty_rows)} NIFTY option records.")
-                            return {
-                                "date": date_formatted,
-                                "spot_price": spot_price,
-                                "rows": nifty_rows
-                            }
-                        else:
-                            print("Downloaded zip, but columns didn't match required option type/expiry format.")
-            else:
-                print(f"Response status: {res.status_code}")
-
-        except Exception as e:
-            print(f"URL attempt failed: {e}")
-
-        target_date -= timedelta(days=1)
-
-    return None
+    spot, res = fetch_live_spot_and_chain()
+    if res and spot > 0:
+        w_exp, m_exp = get_expiries_from_chain(res)
+        print(f"Detected Spot: {spot}, Weekly Expiry: {w_exp}, Monthly Expiry: {m_exp}")
+        process_and_save_data(res, spot, w_exp, m_exp)
+    else:
+        print("Failed to retrieve market data from public sources.")
