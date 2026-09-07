@@ -1,101 +1,129 @@
+import csv
+import io
 import json
 import os
 import sys
-from datetime import datetime
+import zipfile
+from datetime import datetime, timedelta
 import requests
-import yfinance as yf
 
 
-def fetch_nse_data():
-    """Fetch option chain and spot price directly from NSE India APIs."""
+def get_latest_trading_day():
+    """Find the most recent weekday to attempt Bhavcopy download."""
+    date = datetime.now()
+    # If today is weekend, rollback to Friday
+    if date.weekday() == 5:  # Saturday
+        date -= timedelta(days=1)
+    elif date.weekday() == 6:  # Sunday
+        date -= timedelta(days=2)
+    return date
+
+
+def download_and_parse_bhavcopy():
+    """
+    Downloads the latest NSE FO Bhavcopy ZIP file and parses NIFTY options.
+    Tries current date first, then steps backward day-by-day until a valid file is found.
+    """
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     }
-    session = requests.Session()
-    session.headers.update(headers)
 
-    try:
-        session.get("https://www.nseindia.com", timeout=10)
-        oc_url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
-        response = session.get(oc_url, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            records = data.get("records", {})
-            spot_price = records.get("underlyingValue", 0)
-            expiry_dates = records.get("expiryDates", [])
-            
-            if not expiry_dates or spot_price == 0:
-                return None
-                
-            return {
-                "spot_price": spot_price,
-                "expiry_date": expiry_dates[0],
-                "chain": data.get("filtered", {}).get("data", []),
-                "source": "NSE"
-            }
-    except Exception as e:
-        print(f"NSE API fetch failed: {e}")
-    return None
+    target_date = get_latest_trading_day()
 
+    for _ in range(5):  # Try up to 5 days back (handles trading holidays)
+        day_str = target_date.strftime("%d")
+        month_str = target_date.strftime("%b").upper()
+        year_str = target_date.strftime("%Y")
+        date_formatted = target_date.strftime("%d-%b-%Y").upper()
 
-def fetch_yfinance_spot():
-    """Fetch NIFTY spot price from yfinance (Spot index works, options chain doesn't)."""
-    try:
-        ticker = yf.Ticker("^NSEI")
-        history = ticker.history(period="1d")
-        if not history.empty:
-            spot_price = history["Close"].iloc[-1]
-            return float(spot_price)
-    except Exception as e:
-        print(f"yfinance spot fetch failed: {e}")
-    return None
+        # NSE FO Bhavcopy URL format (udr_fo_bhav.csv / foDDMMMYYYYbhav.csv)
+        # Using NSE Archives zip endpoint:
+        zip_url = f"https://archives.nseindia.com/content/historical/DERIVATIVES/{year_str}/{month_str}/fo{day_str}{month_str}{year_str}bhav.csv.zip"
 
+        print(f"Attempting to fetch Bhavcopy for {date_formatted} from {zip_url}...")
 
-def load_existing_data():
-    """Fallback to existing data.json to keep the workflow alive during market off-hours."""
-    if os.path.exists("data.json"):
         try:
-            with open("data.json", "r") as f:
-                data = json.load(f)
-                data["bhavcopyReady"] = False  # Set flag showing live update is paused
-                print("Loaded cached data.json as fallback.")
-                return data
+            res = requests.get(zip_url, headers=headers, timeout=15)
+            if res.status_code == 200:
+                print(f"Successfully downloaded Bhavcopy for {date_formatted}")
+
+                # Extract CSV from ZIP in memory
+                with zipfile.ZipFile(io.BytesIO(res.content)) as z:
+                    csv_filename = z.namelist()[0]
+                    with z.open(csv_filename) as f:
+                        reader = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8"))
+                        
+                        nifty_rows = []
+                        spot_price = 0.0
+
+                        for row in reader:
+                            # Filter only NIFTY Index Options
+                            if row.get("INSTRUMENT") in ["OPTIDX", "OPTSTK"] and row.get("SYMBOL") == "NIFTY":
+                                nifty_rows.append(row)
+                            elif row.get("INSTRUMENT") == "FUTIDX" and row.get("SYMBOL") == "NIFTY":
+                                # Use underlying spot or near-month future price as reference
+                                underlying = row.get("UNDERLYING_VALUE") or row.get("CLOSE")
+                                if underlying and float(underlying) > 0:
+                                    spot_price = float(underlying)
+
+                        if nifty_rows:
+                            return {
+                                "date": date_formatted,
+                                "spot_price": spot_price,
+                                "rows": nifty_rows
+                            }
+            else:
+                print(f"Bhavcopy not available for {date_formatted} (Status: {res.status_code})")
         except Exception as e:
-            print(f"Failed to read existing data.json: {e}")
+            print(f"Failed fetching Bhavcopy for {date_formatted}: {e}")
+
+        # Step back 1 day
+        target_date -= timedelta(days=1)
+
     return None
 
 
-def calculate_dashboard_data(market_data):
-    """Process market raw data into structured schema."""
-    spot_price = market_data["spot_price"]
-    chain = market_data["chain"]
+def process_bhavcopy_data(bhav_data):
+    """Parses raw Bhavcopy rows into the structure required by index.html."""
+    rows = bhav_data["rows"]
     
+    # 1. Get nearest Expiry Date
+    expiries = sorted(list(set(r["EXPIRY_DT"] for r in rows)))
+    if not expiries:
+        return None
+    nearest_expiry = expiries[0]
+
+    # Filter for nearest expiry only
+    expiry_rows = [r for r in rows if r["EXPIRY_DT"] == nearest_expiry]
+
+    # Calculate Spot Price if missing
+    spot_price = bhav_data["spot_price"]
+    if spot_price == 0:
+        # Estimate spot from median strike in option chain
+        strikes = [float(r["STRIKE_PR"]) for r in expiry_rows if float(r.get("CLOSE", 0)) > 0]
+        spot_price = sum(strikes) / len(strikes) if strikes else 24500.0
+
     hlc_atm_strike = round(spot_price / 50) * 50
     round_100_strike = round(spot_price / 100) * 100
 
-    ce_data = {"close": 0, "high": 0, "low": 0}
-    pe_data = {"close": 0, "high": 0, "low": 0}
-    
-    for row in chain:
-        if row.get("strikePrice") == hlc_atm_strike:
-            if "CE" in row:
-                ce = row["CE"]
-                ce_data = {
-                    "close": ce.get("closePrice") or ce.get("lastPrice", 0),
-                    "high": ce.get("highPrice") or ce.get("lastPrice", 0),
-                    "low": ce.get("lowPrice") or ce.get("lastPrice", 0)
-                }
-            if "PE" in row:
-                pe = row["PE"]
-                pe_data = {
-                    "close": pe.get("closePrice") or pe.get("lastPrice", 0),
-                    "high": pe.get("highPrice") or pe.get("lastPrice", 0),
-                    "low": pe.get("lowPrice") or pe.get("lastPrice", 0)
-                }
-            break
+    ce_data = {"close": 0.0, "high": 0.0, "low": 0.0}
+    pe_data = {"close": 0.0, "high": 0.0, "low": 0.0}
+
+    # Extract ATM Strike Data
+    for r in expiry_rows:
+        strike = float(r["STRIKE_PR"])
+        option_type = r["OPTION_TYP"]
+
+        if strike == hlc_atm_strike:
+            data_dict = {
+                "close": float(r.get("CLOSE", 0) or r.get("LAST", 0)),
+                "high": float(r.get("HIGH", 0)),
+                "low": float(r.get("LOW", 0))
+            }
+            if option_type == "CE":
+                ce_data = data_dict
+            elif option_type == "PE":
+                pe_data = data_dict
 
     ce_hc = ce_data["high"] - ce_data["close"]
     ce_cl = ce_data["close"] - ce_data["low"]
@@ -113,8 +141,8 @@ def calculate_dashboard_data(market_data):
     return {
         "bhavcopyReady": True,
         "spotPrice": round(spot_price, 2),
-        "currentDate": datetime.now().strftime("%d %b %Y").upper(),
-        "expiryDate": market_data["expiry_date"],
+        "currentDate": bhav_data["date"],
+        "expiryDate": nearest_expiry,
         "hlcAtmStrike": str(hlc_atm_strike),
         "ce": ce_data,
         "pe": pe_data,
@@ -159,37 +187,29 @@ def calculate_dashboard_data(market_data):
 
 
 def main():
-    print("Starting NIFTY Market Data Update...")
-    
-    # 1. Primary Source: NSE API
-    market_data = fetch_nse_data()
+    print("Starting Bhavcopy Update Process...")
 
-    # 2. Safe Fallback Handling
-    if not market_data:
-        print("Live fetch unavailable. Checking fallback options...")
-        fallback_json = load_existing_data()
-        
-        if fallback_json:
-            # Update spot price if yfinance spot is available
-            spot = fetch_yfinance_spot()
-            if spot:
-                fallback_json["spotPrice"] = round(spot, 2)
-            
+    bhav_data = download_and_parse_bhavcopy()
+
+    if bhav_data:
+        dashboard_json = process_bhavcopy_data(bhav_data)
+        if dashboard_json:
             with open("data.json", "w", encoding="utf-8") as f:
-                json.dump(fallback_json, f, indent=2)
-            print("Successfully updated data.json using fallback state.")
+                json.dump(dashboard_json, f, indent=2)
+            print("Successfully updated data.json via official NSE Bhavcopy!")
             sys.exit(0)
-        else:
-            print("Warning: No existing data.json found to use as fallback.")
-            sys.exit(0)  # Exit safely with 0 so the GitHub Action step succeeds
 
-    # Calculate values and construct JSON
-    dashboard_json = calculate_dashboard_data(market_data)
+    print("Warning: Could not process Bhavcopy. Keeping existing data.json.")
     
-    with open("data.json", "w", encoding="utf-8") as f:
-        json.dump(dashboard_json, f, indent=2)
-        
-    print(f"Successfully updated data.json via {market_data['source']} at {datetime.now()}")
+    # Graceful fallback flag if Bhavcopy is pending
+    if os.path.exists("data.json"):
+        with open("data.json", "r") as f:
+            existing = json.load(f)
+        existing["bhavcopyReady"] = False
+        with open("data.json", "w", encoding="utf-8") as f:
+            json.dump(existing, f, indent=2)
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":
