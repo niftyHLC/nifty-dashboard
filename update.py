@@ -20,8 +20,7 @@ def get_latest_trading_day():
 
 def download_and_parse_bhavcopy():
     """
-    Downloads the latest NSE FO Bhavcopy ZIP file using the modern UDiFF URL structure.
-    Tries current date first, then steps backward day-by-day until a valid file is found.
+    Downloads the latest NSE FO Bhavcopy ZIP file using modern UDiFF & Legacy URL structures.
     """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -46,8 +45,10 @@ def download_and_parse_bhavcopy():
             print(f"Fetching Bhavcopy for {date_formatted} from {zip_url}...")
             try:
                 res = requests.get(zip_url, headers=headers, timeout=15)
-                if res.status_code == 200:
-                    print(f"Successfully retrieved Bhavcopy for {date_formatted}")
+                
+                # Check if payload is actually a valid ZIP file
+                if res.status_code == 200 and res.content[:4] == b'PK\x03\x04':
+                    print(f"Successfully retrieved valid ZIP Bhavcopy for {date_formatted}")
 
                     with zipfile.ZipFile(io.BytesIO(res.content)) as z:
                         csv_filename = z.namelist()[0]
@@ -58,17 +59,29 @@ def download_and_parse_bhavcopy():
                             spot_price = 0.0
 
                             for row in reader:
-                                inst = row.get("INSTRUMENT") or row.get("TckrSymb") or ""
-                                symbol = row.get("SYMBOL") or row.get("FinInstrmId") or row.get("TckrSymb") or ""
-                                
-                                # Match NIFTY contracts
-                                if "NIFTY" in symbol and "NIFTY IT" not in symbol and "NIFTY BANK" not in symbol:
-                                    strike = float(row.get("STRIKE_PR") or row.get("StkPrc") or 0)
-                                    opt_type = row.get("OPTION_TYP") or row.get("OptnTp") or ""
-                                    close_p = float(row.get("CLOSE") or row.get("ClsPrc") or 0)
-                                    high_p = float(row.get("HIGH") or row.get("HghPrc") or 0)
-                                    low_p = float(row.get("LOW") or row.get("LwPrc") or 0)
-                                    expiry_p = str(row.get("EXPIRY_DT") or row.get("XprtnDt") or "").strip().upper()
+                                # Clean keys (strip whitespace/bom)
+                                clean_row = {k.strip(): v.strip() if v else "" for k, v in row.items() if k}
+
+                                # Support UDiFF & Legacy column names
+                                symbol = clean_row.get("SYMBOL") or clean_row.get("TckrSymb") or clean_row.get("FinInstrmId") or ""
+                                inst = clean_row.get("INSTRUMENT") or clean_row.get("Sgmt") or ""
+
+                                # Filter exact NIFTY index
+                                if symbol == "NIFTY":
+                                    strike_str = clean_row.get("STRIKE_PR") or clean_row.get("StkPrc") or "0"
+                                    opt_type = clean_row.get("OPTION_TYP") or clean_row.get("OptnTp") or ""
+                                    close_str = clean_row.get("CLOSE") or clean_row.get("ClsPrc") or "0"
+                                    high_str = clean_row.get("HIGH") or clean_row.get("HghPrc") or "0"
+                                    low_str = clean_row.get("LOW") or clean_row.get("LwPrc") or "0"
+                                    expiry_str = clean_row.get("EXPIRY_DT") or clean_row.get("XprtnDt") or ""
+
+                                    try:
+                                        strike = float(strike_str)
+                                        close_p = float(close_str)
+                                        high_p = float(high_str)
+                                        low_p = float(low_str)
+                                    except ValueError:
+                                        continue
 
                                     if opt_type in ["CE", "PE"]:
                                         nifty_rows.append({
@@ -77,19 +90,28 @@ def download_and_parse_bhavcopy():
                                             "CLOSE": close_p,
                                             "HIGH": high_p,
                                             "LOW": low_p,
-                                            "EXPIRY_DT": expiry_p
+                                            "EXPIRY_DT": expiry_str
                                         })
-                                    elif "FUT" in inst or "FUT" in opt_type:
-                                        und = row.get("UNDERLYING_VALUE") or row.get("ClsPrc")
-                                        if und and float(und) > 0:
-                                            spot_price = float(und)
+                                    elif "FUT" in inst or "FUT" in opt_type or clean_row.get("Sgmt") == "FO":
+                                        und = clean_row.get("UNDERLYING_VALUE") or clean_row.get("ClsPrc")
+                                        try:
+                                            if und and float(und) > 0:
+                                                spot_price = float(und)
+                                        except ValueError:
+                                            pass
 
                             if nifty_rows:
+                                print(f"Found {len(nifty_rows)} NIFTY option records.")
                                 return {
                                     "date": date_formatted,
                                     "spot_price": spot_price,
                                     "rows": nifty_rows
                                 }
+                            else:
+                                print("Downloaded zip file, but no NIFTY option rows matched CSV parsing rules.")
+                else:
+                    print(f"Response status: {res.status_code} (Not a valid ZIP payload)")
+
             except Exception as e:
                 print(f"URL attempt failed: {e}")
 
@@ -103,12 +125,13 @@ def process_bhavcopy_data(bhav_data):
     """Parses raw Bhavcopy rows into structured dashboard data."""
     rows = bhav_data["rows"]
     
-    # Collect unique expiries
     expiries = list(set(r["EXPIRY_DT"] for r in rows if r["EXPIRY_DT"]))
     if not expiries:
+        print("No expiry dates found in NIFTY rows.")
         return None
 
     nearest_expiry = sorted(expiries)[0]
+    print(f"Selected nearest expiry date: {nearest_expiry}")
     expiry_rows = [r for r in rows if r["EXPIRY_DT"] == nearest_expiry]
 
     spot_price = bhav_data["spot_price"]
