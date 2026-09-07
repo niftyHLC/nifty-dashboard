@@ -1,39 +1,21 @@
 {
-  "short_name": "NIFTY Dash",
-  "name": "NIFTY Live Option Chain Dashboard",
-  "description": "Real-time tracking dashboard for NIFTY option chain metrics, ATM straddles, and market zones.",
-  "id": "nifty-live-dashboard-pwa",
-  "start_url": "./index.html",
-  "scope": "./",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#030712",
-  "theme_color": "#030712",
-  "categories": ["finance", "utilities"],
+  "short_name": "NIFTY Dashboard",
+  "name": "NIFTY Live Options Dashboard",
   "icons": [
     {
       "src": "icon-192.png",
       "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-192.png",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "maskable"
+      "sizes": "192x192"
     },
     {
       "src": "icon-512.png",
       "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-512.png",
-      "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "maskable"
+      "sizes": "512x512"
     }
-  ]
+  ],
+  "start_url": "./index.html",
+  "background_color": "#030712",
+  "theme_color": "#030712",
+  "display": "standalone",
+  "orientation": "portrait"
 }
