@@ -11,71 +11,88 @@ import requests
 def get_latest_trading_day():
     """Find the most recent weekday to attempt Bhavcopy download."""
     date = datetime.now()
-    # If today is weekend, rollback to Friday
-    if date.weekday() == 5:  # Saturday
+    if date.weekday() == 5:    # Saturday -> Friday
         date -= timedelta(days=1)
-    elif date.weekday() == 6:  # Sunday
+    elif date.weekday() == 6:  # Sunday -> Friday
         date -= timedelta(days=2)
     return date
 
 
 def download_and_parse_bhavcopy():
     """
-    Downloads the latest NSE FO Bhavcopy ZIP file and parses NIFTY options.
+    Downloads the latest NSE FO Bhavcopy ZIP file using the modern UDiFF URL structure.
     Tries current date first, then steps backward day-by-day until a valid file is found.
     """
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "*/*"
     }
 
     target_date = get_latest_trading_day()
 
-    for _ in range(5):  # Try up to 5 days back (handles trading holidays)
+    for _ in range(5):  # Try up to 5 days back (handles weekends and trading holidays)
         day_str = target_date.strftime("%d")
         month_str = target_date.strftime("%b").upper()
         year_str = target_date.strftime("%Y")
+        ymd_str = target_date.strftime("%Y%m%d")
         date_formatted = target_date.strftime("%d-%b-%Y").upper()
 
-        # NSE FO Bhavcopy URL format (udr_fo_bhav.csv / foDDMMMYYYYbhav.csv)
-        # Using NSE Archives zip endpoint:
-        zip_url = f"https://archives.nseindia.com/content/historical/DERIVATIVES/{year_str}/{month_str}/fo{day_str}{month_str}{year_str}bhav.csv.zip"
+        # Modern NSE UDiFF FO Bhavcopy URL vs Legacy URL
+        urls_to_try = [
+            f"https://archives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{ymd_str}_F_0000.csv.zip",
+            f"https://www.nseindia.com/content/historical/DERIVATIVES/{year_str}/{month_str}/fo{day_str}{month_str}{year_str}bhav.csv.zip"
+        ]
 
-        print(f"Attempting to fetch Bhavcopy for {date_formatted} from {zip_url}...")
+        for zip_url in urls_to_try:
+            print(f"Fetching Bhavcopy for {date_formatted} from {zip_url}...")
+            try:
+                res = requests.get(zip_url, headers=headers, timeout=15)
+                if res.status_code == 200:
+                    print(f"Successfully retrieved Bhavcopy for {date_formatted}")
 
-        try:
-            res = requests.get(zip_url, headers=headers, timeout=15)
-            if res.status_code == 200:
-                print(f"Successfully downloaded Bhavcopy for {date_formatted}")
+                    with zipfile.ZipFile(io.BytesIO(res.content)) as z:
+                        csv_filename = z.namelist()[0]
+                        with z.open(csv_filename) as f:
+                            reader = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8"))
+                            
+                            nifty_rows = []
+                            spot_price = 0.0
 
-                # Extract CSV from ZIP in memory
-                with zipfile.ZipFile(io.BytesIO(res.content)) as z:
-                    csv_filename = z.namelist()[0]
-                    with z.open(csv_filename) as f:
-                        reader = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8"))
-                        
-                        nifty_rows = []
-                        spot_price = 0.0
+                            for row in reader:
+                                inst = row.get("INSTRUMENT") or row.get("TckrSymb") or ""
+                                symbol = row.get("SYMBOL") or row.get("FinInstrmId") or row.get("TckrSymb") or ""
+                                
+                                if "NIFTY" in symbol:
+                                    # Normalize columns across legacy & modern UDiFF formats
+                                    strike = row.get("STRIKE_PR") or row.get("StkPrc") or "0"
+                                    opt_type = row.get("OPTION_TYP") or row.get("OptnTp") or ""
+                                    close_p = row.get("CLOSE") or row.get("ClsPrc") or "0"
+                                    high_p = row.get("HIGH") or row.get("HghPrc") or "0"
+                                    low_p = row.get("LOW") or row.get("LwPrc") or "0"
+                                    expiry_p = row.get("EXPIRY_DT") or row.get("XprtnDt") or ""
 
-                        for row in reader:
-                            # Filter only NIFTY Index Options
-                            if row.get("INSTRUMENT") in ["OPTIDX", "OPTSTK"] and row.get("SYMBOL") == "NIFTY":
-                                nifty_rows.append(row)
-                            elif row.get("INSTRUMENT") == "FUTIDX" and row.get("SYMBOL") == "NIFTY":
-                                # Use underlying spot or near-month future price as reference
-                                underlying = row.get("UNDERLYING_VALUE") or row.get("CLOSE")
-                                if underlying and float(underlying) > 0:
-                                    spot_price = float(underlying)
+                                    if opt_type in ["CE", "PE"]:
+                                        nifty_rows.append({
+                                            "STRIKE_PR": float(strike),
+                                            "OPTION_TYP": opt_type,
+                                            "CLOSE": float(close_p),
+                                            "HIGH": float(high_p),
+                                            "LOW": float(low_p),
+                                            "EXPIRY_DT": expiry_p
+                                        })
+                                    elif "FUT" in inst or "FUT" in opt_type:
+                                        und = row.get("UNDERLYING_VALUE") or row.get("ClsPrc")
+                                        if und and float(und) > 0:
+                                            spot_price = float(und)
 
-                        if nifty_rows:
-                            return {
-                                "date": date_formatted,
-                                "spot_price": spot_price,
-                                "rows": nifty_rows
-                            }
-            else:
-                print(f"Bhavcopy not available for {date_formatted} (Status: {res.status_code})")
-        except Exception as e:
-            print(f"Failed fetching Bhavcopy for {date_formatted}: {e}")
+                            if nifty_rows:
+                                return {
+                                    "date": date_formatted,
+                                    "spot_price": spot_price,
+                                    "rows": nifty_rows
+                                }
+            except Exception as e:
+                print(f"URL attempt failed: {e}")
 
         # Step back 1 day
         target_date -= timedelta(days=1)
@@ -84,23 +101,19 @@ def download_and_parse_bhavcopy():
 
 
 def process_bhavcopy_data(bhav_data):
-    """Parses raw Bhavcopy rows into the structure required by index.html."""
+    """Parses raw Bhavcopy rows into structured dashboard data."""
     rows = bhav_data["rows"]
     
-    # 1. Get nearest Expiry Date
     expiries = sorted(list(set(r["EXPIRY_DT"] for r in rows)))
     if not expiries:
         return None
     nearest_expiry = expiries[0]
 
-    # Filter for nearest expiry only
     expiry_rows = [r for r in rows if r["EXPIRY_DT"] == nearest_expiry]
 
-    # Calculate Spot Price if missing
     spot_price = bhav_data["spot_price"]
     if spot_price == 0:
-        # Estimate spot from median strike in option chain
-        strikes = [float(r["STRIKE_PR"]) for r in expiry_rows if float(r.get("CLOSE", 0)) > 0]
+        strikes = [r["STRIKE_PR"] for r in expiry_rows if r["CLOSE"] > 0]
         spot_price = sum(strikes) / len(strikes) if strikes else 24500.0
 
     hlc_atm_strike = round(spot_price / 50) * 50
@@ -109,20 +122,16 @@ def process_bhavcopy_data(bhav_data):
     ce_data = {"close": 0.0, "high": 0.0, "low": 0.0}
     pe_data = {"close": 0.0, "high": 0.0, "low": 0.0}
 
-    # Extract ATM Strike Data
     for r in expiry_rows:
-        strike = float(r["STRIKE_PR"])
-        option_type = r["OPTION_TYP"]
-
-        if strike == hlc_atm_strike:
+        if r["STRIKE_PR"] == hlc_atm_strike:
             data_dict = {
-                "close": float(r.get("CLOSE", 0) or r.get("LAST", 0)),
-                "high": float(r.get("HIGH", 0)),
-                "low": float(r.get("LOW", 0))
+                "close": r["CLOSE"],
+                "high": r["HIGH"],
+                "low": r["LOW"]
             }
-            if option_type == "CE":
+            if r["OPTION_TYP"] == "CE":
                 ce_data = data_dict
-            elif option_type == "PE":
+            elif r["OPTION_TYP"] == "PE":
                 pe_data = data_dict
 
     ce_hc = ce_data["high"] - ce_data["close"]
