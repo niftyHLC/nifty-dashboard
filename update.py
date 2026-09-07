@@ -7,6 +7,7 @@ import os
 import subprocess
 import zipfile
 import requests
+import time
 
 # Indian Standard Time (IST) offset
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
@@ -33,41 +34,46 @@ def push_to_github():
         print(f"Git push failed: {e}")
 
 
-def fetch_nse_session():
-    """Initializes a requests session with proper NSE headers and cookies."""
+def fetch_live_spot_and_chain():
+    """Fetches Nifty live spot price and option chain directly from NSE public endpoints with retries."""
     session = requests.Session()
-    headers = {
+    session.headers.update({
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
         "Referer": "https://www.nseindia.com/"
-    }
-    session.headers.update(headers)
-    try:
-        # Hit homepage first to collect valid cookies required by NSE backend
-        session.get("https://www.nseindia.com", timeout=10)
-    except Exception as e:
-        print(f"Warning: Failed to prime NSE session cookies: {e}")
-    return session
+    })
 
-
-def fetch_live_spot_and_chain():
-    """Fetches Nifty live spot price and option chain directly from NSE public endpoints."""
-    session = fetch_nse_session()
-    url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+    # Step 1: Prime cookies by hitting the main homepage and option-chain page first
+    urls_to_prime = [
+        "https://www.nseindia.com",
+        "https://www.nseindia.com/option-chain"
+    ]
     
-    try:
-        response = session.get(url, timeout=15)
-        if response.status_code == 200:
-            res_json = response.json()
-            records = res_json.get("records", {})
-            spot = float(records.get("underlyingValue", 0.0))
-            return spot, res_json
-        else:
-            print(f"Failed to fetch NSE option chain. Status code: {response.status_code}")
-    except Exception as e:
-        print(f"Failed to fetch live spot price and chain from NSE: {e}")
+    for prime_url in urls_to_prime:
+        try:
+            session.get(prime_url, timeout=10)
+            time.sleep(1) # Brief pause to mimic human browsing behavior
+        except Exception as e:
+            print(f"Warning: Failed to prime URL {prime_url}: {e}")
+
+    api_url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+    
+    for attempt in range(3):
+        try:
+            response = session.get(api_url, timeout=15)
+            if response.status_code == 200:
+                res_json = response.json()
+                records = res_json.get("records", {})
+                spot = float(records.get("underlyingValue", 0.0))
+                if spot > 0:
+                    return spot, res_json
+            print(f"Attempt {attempt+1}: Status code {response.status_code}. Retrying...")
+        except Exception as e:
+            print(f"Attempt {attempt+1} failed: {e}")
+        time.sleep(2)
         
     return 0.0, None
 
@@ -85,7 +91,6 @@ def get_expiries_from_chain(res_json):
         
         parsed_expiries = []
         for exp_str in expiry_list:
-            # NSE format is typically 'DD-MMM-YYYY' e.g. '26-Sep-2026'
             try:
                 dt = datetime.datetime.strptime(exp_str, "%d-%b-%Y")
                 parsed_expiries.append((dt.strftime("%Y-%m-%d"), exp_str))
@@ -97,8 +102,7 @@ def get_expiries_from_chain(res_json):
         future_exp = [e for e in parsed_expiries if e[0] >= today_str]
         w_exp_raw = future_exp[0][1] if future_exp else parsed_expiries[-1][1]
         
-        # Monthly expiry heuristic: last expiry matching the month of w_exp_raw or current month
-        month_prefix = w_exp_raw[3:] # e.g. 'Sep-2026'
+        month_prefix = w_exp_raw[3:] 
         matching_month_exp = [e[1] for e in parsed_expiries if e[1].endswith(month_prefix)]
         m_exp_raw = matching_month_exp[-1] if matching_month_exp else w_exp_raw
         
@@ -269,8 +273,8 @@ def calculate_zone_row_one(wl, wh, bhav_map, chain_data, target_expiry):
     ce2, pe2 = get_p(wh, "CE"), get_p(wh, "PE")
 
     return {
-        "line1": round(wh + ce2, 2),  # Upper Zone value (Red)
-        "line2": round(wl - pe1, 2)   # Lower Zone value (Green)
+        "line1": round(wh + ce2, 2),  
+        "line2": round(wl - pe1, 2)   
     }
 
 
@@ -375,8 +379,6 @@ def process_and_save_data(res_json, spot, w_exp, m_exp):
     wh = int(math.ceil(spot / 100.0) * 100)
 
     weekly_zones = calculate_zone_row_one(wl, wh, w_bhav, res_json, w_exp)
-    
-    # If monthly expiry differs, fetch corresponding chain data if needed, or re-use current chain structure
     monthly_zones = calculate_zone_row_one(wl, wh, m_bhav, res_json, m_exp)
 
     formatted_expiry = ""
