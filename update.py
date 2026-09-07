@@ -86,8 +86,10 @@ def download_today_bhavcopy():
 
             print(f"Successfully downloaded TODAY'S Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
             return True
+        else:
+            print(f"⏳ Today's Bhavcopy is not available yet on NSE archives (Status Code: {response.status_code}).")
     except Exception as e:
-        print(f"Today's Bhavcopy is not available yet: {e}")
+        print(f"⚠️ Error while trying to download Bhavcopy: {e}")
         
     return False
 
