@@ -30,14 +30,13 @@ def download_and_parse_bhavcopy():
 
     target_date = get_latest_trading_day()
 
-    for _ in range(5):  # Try up to 5 days back (handles weekends and trading holidays)
+    for _ in range(5):  # Try up to 5 days back
         day_str = target_date.strftime("%d")
         month_str = target_date.strftime("%b").upper()
         year_str = target_date.strftime("%Y")
         ymd_str = target_date.strftime("%Y%m%d")
         date_formatted = target_date.strftime("%d-%b-%Y").upper()
 
-        # Modern NSE UDiFF FO Bhavcopy URL vs Legacy URL
         urls_to_try = [
             f"https://archives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{ymd_str}_F_0000.csv.zip",
             f"https://www.nseindia.com/content/historical/DERIVATIVES/{year_str}/{month_str}/fo{day_str}{month_str}{year_str}bhav.csv.zip"
@@ -62,22 +61,22 @@ def download_and_parse_bhavcopy():
                                 inst = row.get("INSTRUMENT") or row.get("TckrSymb") or ""
                                 symbol = row.get("SYMBOL") or row.get("FinInstrmId") or row.get("TckrSymb") or ""
                                 
-                                if "NIFTY" in symbol:
-                                    # Normalize columns across legacy & modern UDiFF formats
-                                    strike = row.get("STRIKE_PR") or row.get("StkPrc") or "0"
+                                # Match NIFTY contracts
+                                if "NIFTY" in symbol and "NIFTY IT" not in symbol and "NIFTY BANK" not in symbol:
+                                    strike = float(row.get("STRIKE_PR") or row.get("StkPrc") or 0)
                                     opt_type = row.get("OPTION_TYP") or row.get("OptnTp") or ""
-                                    close_p = row.get("CLOSE") or row.get("ClsPrc") or "0"
-                                    high_p = row.get("HIGH") or row.get("HghPrc") or "0"
-                                    low_p = row.get("LOW") or row.get("LwPrc") or "0"
-                                    expiry_p = row.get("EXPIRY_DT") or row.get("XprtnDt") or ""
+                                    close_p = float(row.get("CLOSE") or row.get("ClsPrc") or 0)
+                                    high_p = float(row.get("HIGH") or row.get("HghPrc") or 0)
+                                    low_p = float(row.get("LOW") or row.get("LwPrc") or 0)
+                                    expiry_p = str(row.get("EXPIRY_DT") or row.get("XprtnDt") or "").strip().upper()
 
                                     if opt_type in ["CE", "PE"]:
                                         nifty_rows.append({
-                                            "STRIKE_PR": float(strike),
+                                            "STRIKE_PR": strike,
                                             "OPTION_TYP": opt_type,
-                                            "CLOSE": float(close_p),
-                                            "HIGH": float(high_p),
-                                            "LOW": float(low_p),
+                                            "CLOSE": close_p,
+                                            "HIGH": high_p,
+                                            "LOW": low_p,
                                             "EXPIRY_DT": expiry_p
                                         })
                                     elif "FUT" in inst or "FUT" in opt_type:
@@ -104,11 +103,12 @@ def process_bhavcopy_data(bhav_data):
     """Parses raw Bhavcopy rows into structured dashboard data."""
     rows = bhav_data["rows"]
     
-    expiries = sorted(list(set(r["EXPIRY_DT"] for r in rows)))
+    # Collect unique expiries
+    expiries = list(set(r["EXPIRY_DT"] for r in rows if r["EXPIRY_DT"]))
     if not expiries:
         return None
-    nearest_expiry = expiries[0]
 
+    nearest_expiry = sorted(expiries)[0]
     expiry_rows = [r for r in rows if r["EXPIRY_DT"] == nearest_expiry]
 
     spot_price = bhav_data["spot_price"]
@@ -210,7 +210,6 @@ def main():
 
     print("Warning: Could not process Bhavcopy. Keeping existing data.json.")
     
-    # Graceful fallback flag if Bhavcopy is pending
     if os.path.exists("data.json"):
         with open("data.json", "r") as f:
             existing = json.load(f)
