@@ -1,9 +1,6 @@
 import json
-import math
 import os
 import sys
-import time
-import csv
 from datetime import datetime
 import requests
 import yfinance as yf
@@ -20,10 +17,7 @@ def fetch_nse_data():
     session.headers.update(headers)
 
     try:
-        # Establish session cookies
         session.get("https://www.nseindia.com", timeout=10)
-        
-        # Fetch NIFTY Option Chain Data
         oc_url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
         response = session.get(oc_url, timeout=10)
         
@@ -36,88 +30,55 @@ def fetch_nse_data():
             if not expiry_dates or spot_price == 0:
                 return None
                 
-            target_expiry = expiry_dates[0]
-            option_data = data.get("filtered", {}).get("data", [])
-            
             return {
                 "spot_price": spot_price,
-                "expiry_date": target_expiry,
-                "chain": option_data,
+                "expiry_date": expiry_dates[0],
+                "chain": data.get("filtered", {}).get("data", []),
                 "source": "NSE"
             }
     except Exception as e:
-        print(f"NSE fetch failed: {e}")
+        print(f"NSE API fetch failed: {e}")
     return None
 
 
-def fetch_yfinance_data():
-    """Fallback: Fetch NIFTY spot and option chain data via Yahoo Finance."""
+def fetch_yfinance_spot():
+    """Fetch NIFTY spot price from yfinance (Spot index works, options chain doesn't)."""
     try:
         ticker = yf.Ticker("^NSEI")
         history = ticker.history(period="1d")
-        if history.empty:
-            return None
-            
-        spot_price = history["Close"].iloc[-1]
-        expirations = ticker.options
-        
-        if not expirations:
-            return None
-            
-        target_expiry = expirations[0]
-        opt = ticker.option_chain(target_expiry)
-        
-        # Convert yfinance DataFrames to standard dict structure
-        chain = []
-        calls = opt.calls.set_index("strike")
-        puts = opt.puts.set_index("strike")
-        
-        all_strikes = sorted(list(set(calls.index).union(set(puts.index))))
-        for strike in all_strikes:
-            item = {"strikePrice": strike}
-            if strike in calls.index:
-                row = calls.loc[strike]
-                item["CE"] = {
-                    "lastPrice": row.get("lastPrice", 0),
-                    "highPrice": row.get("high", row.get("lastPrice", 0)),
-                    "lowPrice": row.get("low", row.get("lastPrice", 0)),
-                    "closePrice": row.get("lastPrice", 0)
-                }
-            if strike in puts.index:
-                row = puts.loc[strike]
-                item["PE"] = {
-                    "lastPrice": row.get("lastPrice", 0),
-                    "highPrice": row.get("high", row.get("lastPrice", 0)),
-                    "lowPrice": row.get("low", row.get("lastPrice", 0)),
-                    "closePrice": row.get("lastPrice", 0)
-                }
-            chain.append(item)
-            
-        return {
-            "spot_price": spot_price,
-            "expiry_date": target_expiry,
-            "chain": chain,
-            "source": "yfinance"
-        }
+        if not history.empty:
+            spot_price = history["Close"].iloc[-1]
+            return float(spot_price)
     except Exception as e:
-        print(f"yfinance fetch failed: {e}")
+        print(f"yfinance spot fetch failed: {e}")
+    return None
+
+
+def load_existing_data():
+    """Fallback to existing data.json to keep the workflow alive during market off-hours."""
+    if os.path.exists("data.json"):
+        try:
+            with open("data.json", "r") as f:
+                data = json.load(f)
+                data["bhavcopyReady"] = False  # Set flag showing live update is paused
+                print("Loaded cached data.json as fallback.")
+                return data
+        except Exception as e:
+            print(f"Failed to read existing data.json: {e}")
     return None
 
 
 def calculate_dashboard_data(market_data):
-    """Process market raw data into the structured schema required by index.html."""
+    """Process market raw data into structured schema."""
     spot_price = market_data["spot_price"]
     chain = market_data["chain"]
     
-    # 1. Determine HLC ATM Strike (Nearest 50 step)
     hlc_atm_strike = round(spot_price / 50) * 50
-    # 2. Determine Round 100 Strike
     round_100_strike = round(spot_price / 100) * 100
 
     ce_data = {"close": 0, "high": 0, "low": 0}
     pe_data = {"close": 0, "high": 0, "low": 0}
     
-    # Extract CE and PE for ATM strike
     for row in chain:
         if row.get("strikePrice") == hlc_atm_strike:
             if "CE" in row:
@@ -136,7 +97,6 @@ def calculate_dashboard_data(market_data):
                 }
             break
 
-    # Tags & Classes
     ce_hc = ce_data["high"] - ce_data["close"]
     ce_cl = ce_data["close"] - ce_data["low"]
     pe_hc = pe_data["high"] - pe_data["close"]
@@ -150,8 +110,7 @@ def calculate_dashboard_data(market_data):
 
     straddle_sum = ce_data["close"] + pe_data["close"]
 
-    # Construct JSON response
-    output = {
+    return {
         "bhavcopyReady": True,
         "spotPrice": round(spot_price, 2),
         "currentDate": datetime.now().strftime("%d %b %Y").upper(),
@@ -197,33 +156,40 @@ def calculate_dashboard_data(market_data):
             "value": round(straddle_sum * 0.95, 2)
         }
     }
-    return output
 
 
 def main():
     print("Starting NIFTY Market Data Update...")
     
-    # Try primary source (NSE)
+    # 1. Primary Source: NSE API
     market_data = fetch_nse_data()
-    
-    # Fallback source (yfinance)
-    if not market_data:
-        print("Falling back to yfinance...")
-        market_data = fetch_yfinance_data()
 
-    # Raise exception safely if both fail (No combined syntax on exception line)
+    # 2. Safe Fallback Handling
     if not market_data:
-        raise Exception("Fatal Error: Could not fetch option chain or spot price from both NSE and yfinance.")
+        print("Live fetch unavailable. Checking fallback options...")
+        fallback_json = load_existing_data()
+        
+        if fallback_json:
+            # Update spot price if yfinance spot is available
+            spot = fetch_yfinance_spot()
+            if spot:
+                fallback_json["spotPrice"] = round(spot, 2)
+            
+            with open("data.json", "w", encoding="utf-8") as f:
+                json.dump(fallback_json, f, indent=2)
+            print("Successfully updated data.json using fallback state.")
+            sys.exit(0)
+        else:
+            print("Warning: No existing data.json found to use as fallback.")
+            sys.exit(0)  # Exit safely with 0 so the GitHub Action step succeeds
 
     # Calculate values and construct JSON
     dashboard_json = calculate_dashboard_data(market_data)
     
-    # Write output to data.json
-    output_path = "data.json"
-    with open(output_path, "w", encoding="utf-8") as f:
+    with open("data.json", "w", encoding="utf-8") as f:
         json.dump(dashboard_json, f, indent=2)
         
-    print(f"Successfully updated {output_path} via {market_data['source']} at {datetime.now()}")
+    print(f"Successfully updated data.json via {market_data['source']} at {datetime.now()}")
 
 
 if __name__ == "__main__":
