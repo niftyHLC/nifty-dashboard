@@ -7,7 +7,7 @@ import os
 import subprocess
 import zipfile
 import requests
-import time
+import yfinance as yf
 
 # Indian Standard Time (IST) offset
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
@@ -34,87 +34,21 @@ def push_to_github():
         print(f"Git push failed: {e}")
 
 
-def fetch_live_spot_and_chain():
-    """Fetches Nifty live spot price and option chain directly from NSE public endpoints with retries."""
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Referer": "https://www.nseindia.com/"
-    })
-
-    # Step 1: Prime cookies by hitting the main homepage and option-chain page first
-    urls_to_prime = [
-        "https://www.nseindia.com",
-        "https://www.nseindia.com/option-chain"
-    ]
-    
-    for prime_url in urls_to_prime:
-        try:
-            session.get(prime_url, timeout=10)
-            time.sleep(1) # Brief pause to mimic human browsing behavior
-        except Exception as e:
-            print(f"Warning: Failed to prime URL {prime_url}: {e}")
-
-    api_url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
-    
-    for attempt in range(3):
-        try:
-            response = session.get(api_url, timeout=15)
-            if response.status_code == 200:
-                res_json = response.json()
-                records = res_json.get("records", {})
-                spot = float(records.get("underlyingValue", 0.0))
-                if spot > 0:
-                    return spot, res_json
-            print(f"Attempt {attempt+1}: Status code {response.status_code}. Retrying...")
-        except Exception as e:
-            print(f"Attempt {attempt+1} failed: {e}")
-        time.sleep(2)
-        
-    return 0.0, None
-
-
-def get_expiries_from_chain(res_json):
-    """Extracts weekly and monthly expiries from the NSE option chain payload."""
+def fetch_live_spot_from_yahoo():
+    """Fetches real-time Nifty 50 spot price from Yahoo Finance."""
     try:
-        records = res_json.get("records", {})
-        expiry_list = records.get("expiryDates", [])
-        if not expiry_list:
-            return None, None
-            
-        now_ist = datetime.datetime.now(IST)
-        today_str = now_ist.strftime("%Y-%m-%d")
-        
-        parsed_expiries = []
-        for exp_str in expiry_list:
-            try:
-                dt = datetime.datetime.strptime(exp_str, "%d-%b-%Y")
-                parsed_expiries.append((dt.strftime("%Y-%m-%d"), exp_str))
-            except Exception:
-                continue
-                
-        parsed_expiries.sort(key=lambda x: x[0])
-        
-        future_exp = [e for e in parsed_expiries if e[0] >= today_str]
-        w_exp_raw = future_exp[0][1] if future_exp else parsed_expiries[-1][1]
-        
-        month_prefix = w_exp_raw[3:] 
-        matching_month_exp = [e[1] for e in parsed_expiries if e[1].endswith(month_prefix)]
-        m_exp_raw = matching_month_exp[-1] if matching_month_exp else w_exp_raw
-        
-        return w_exp_raw, m_exp_raw
+        ticker = yf.Ticker("^NSEI")
+        todays_data = ticker.history(period="1d")
+        if not todays_data.empty:
+            spot = float(todays_data["Close"].iloc[-1])
+            return spot
     except Exception as e:
-        print(f"Error parsing expiries: {e}")
-        
-    now_str = datetime.datetime.now(IST).strftime("%d-%b-%Y").upper()
-    return now_str, now_str
+        print(f"Failed to fetch spot from Yahoo Finance: {e}")
+    return 0.0
 
 
 def download_today_bhavcopy():
+    """Downloads official Bhavcopy directly from NSE archives (archives are not blocked like the API)."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
@@ -127,9 +61,7 @@ def download_today_bhavcopy():
     
     url = f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{yyyy}{mm}{dd}_F_0000.csv.zip"
     try:
-        session = requests.Session()
-        session.get("https://www.nseindia.com", headers=headers, timeout=10)
-        response = session.get(url, headers=headers, timeout=30)
+        response = requests.get(url, headers=headers, timeout=30)
         
         if response.status_code == 200 and len(response.content) > 1000:
             if os.path.exists("bhavcopy.csv"):
@@ -227,15 +159,6 @@ def load_bhavcopy_dict(target_expiry_str):
     return bhav_map
 
 
-def get_strike_close_price(bhav_map, item, strike, opt_type):
-    data_dict = bhav_map.get((strike, opt_type), {})
-    if data_dict.get("close", 0.0) > 0:
-        return data_dict["close"]
-    
-    opts = item.get("CE", {}) if opt_type == "CE" else item.get("PE", {})
-    return float(opts.get("closePrice") or opts.get("lastPrice") or 0.0)
-
-
 def get_market_sentiment_tag(data_dict):
     if not data_dict:
         return "NEUTRAL", "tag-neutral"
@@ -256,18 +179,9 @@ def get_market_sentiment_tag(data_dict):
     return "NEUTRAL", "tag-neutral"
 
 
-def calculate_zone_row_one(wl, wh, bhav_map, chain_data, target_expiry):
+def calculate_zone_row_one(wl, wh, bhav_map):
     def get_p(s, t):
-        p = bhav_map.get((s, t), {}).get("close", 0.0)
-        if p > 0: return p
-        if not chain_data: return 0.0
-        
-        for item in chain_data.get("records", {}).get("data", []):
-            if int(round(float(item.get("strikePrice", 0)))) == s:
-                opts = item.get("CE", {}) if t == "CE" else item.get("PE", {})
-                if opts.get("expiryDate") == target_expiry:
-                    return float(opts.get("closePrice") or opts.get("lastPrice") or 0.0)
-        return 0.0
+        return bhav_map.get((s, t), {}).get("close", 0.0)
 
     ce1, pe1 = get_p(wl, "CE"), get_p(wl, "PE")
     ce2, pe2 = get_p(wh, "CE"), get_p(wh, "PE")
@@ -278,39 +192,47 @@ def calculate_zone_row_one(wl, wh, bhav_map, chain_data, target_expiry):
     }
 
 
-def process_and_save_data(res_json, spot, w_exp, m_exp):
-    records = res_json.get("records", {})
-    data = records.get("data", [])
-    if not data or spot <= 0:
-        print("Invalid data or spot price received.")
+def process_and_save_data(spot):
+    if spot <= 0:
+        print("Invalid spot price received.")
         return
 
     now_ist = datetime.datetime.now(IST)
     today_str = now_ist.strftime("%d %b %Y").upper()
 
     bhavcopy_is_ready = download_today_bhavcopy()
+
+    # Determine active expiry from Bhavcopy dates available
+    all_expiries = set()
+    if os.path.exists("bhavcopy.csv"):
+        with open("bhavcopy.csv", mode="r", encoding="utf-8", errors="ignore") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                cleaned_row = {k.strip().upper(): (v.strip() if v else "") for k, v in row.items() if k}
+                exp = cleaned_row.get("XPRYDT") or cleaned_row.get("EXPIRY_DT") or cleaned_row.get("EXPIRY")
+                if exp:
+                    all_expiries.add(exp.strip().upper())
+
+    # Pick the nearest valid expiry date
+    sorted_expiries = sorted(list(all_expiries))
+    w_exp = sorted_expiries[0] if sorted_expiries else now_ist.strftime("%d-%b-%Y").upper()
+    m_exp = sorted_expiries[-1] if sorted_expiries else w_exp
+
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
     min_diff = float('inf')
     hlc_atm_strike = int(round(spot / 50.0) * 50)
 
-    for item in data:
-        if item.get("expiryDate") != w_exp:
-            continue
-        item_strike = item.get("strikePrice")
-        if item_strike is None: continue
-        s_val = int(round(float(item_strike)))
-        if abs(s_val - spot) > 500: continue
-
-        ce_close = get_strike_close_price(w_bhav, item, s_val, "CE")
-        pe_close = get_strike_close_price(w_bhav, item, s_val, "PE")
-
-        if ce_close > 0 and pe_close > 0:
-            diff = abs(ce_close - pe_close)
-            if diff < min_diff:
-                min_diff = diff
-                hlc_atm_strike = s_val
+    for (strike, opt_type), d_val in w_bhav.items():
+        if abs(strike - spot) <= 500:
+            ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
+            pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
+            if ce_close > 0 and pe_close > 0:
+                diff = abs(ce_close - pe_close)
+                if diff < min_diff:
+                    min_diff = diff
+                    hlc_atm_strike = strike
 
     sniper1_atm_strike = int(round(spot / 100.0) * 100)
     sniper2_atm_strike = hlc_atm_strike
@@ -326,43 +248,15 @@ def process_and_save_data(res_json, spot, w_exp, m_exp):
     ce_high, ce_low, ce_close = ce_dict.get("high", 0.0), ce_dict.get("low", 0.0), ce_dict.get("close", 0.0)
     pe_high, pe_low, pe_close = pe_dict.get("high", 0.0), pe_dict.get("low", 0.0), pe_dict.get("close", 0.0)
 
-    s1_atm_ce_val, s1_atm_pe_val = 0.0, 0.0
-    s2_atm_ce_val, s2_atm_pe_val = 0.0, 0.0
-    s1_ce_val, s1_pe_val = 0.0, 0.0
-    s2_ce_val, s2_pe_val = 0.0, 0.0
+    s1_atm_ce_val = w_bhav.get((sniper1_atm_strike, "CE"), {}).get("close", 0.0)
+    s1_atm_pe_val = w_bhav.get((sniper1_atm_strike, "PE"), {}).get("close", 0.0)
+    s1_ce_val = w_bhav.get((target_s1_ce_strike, "CE"), {}).get("close", 0.0)
+    s1_pe_val = w_bhav.get((target_s1_pe_strike, "PE"), {}).get("close", 0.0)
 
-    for item in data:
-        if item.get("expiryDate") != w_exp:
-            continue
-        item_strike = item.get("strikePrice")
-        if item_strike is None: continue
-        s_val = int(round(float(item_strike)))
-        
-        call_opts = item.get("CE", {})
-        put_opts = item.get("PE", {})
-
-        if s_val == hlc_atm_strike:
-            if ce_close == 0.0: ce_close = float(call_opts.get("closePrice") or call_opts.get("lastPrice") or 0.0)
-            if ce_high == 0.0: ce_high = float(call_opts.get("highPrice") or ce_close)
-            if ce_low == 0.0: ce_low = float(call_opts.get("lowPrice") or ce_close)
-            ce_dict["close"], ce_dict["high"], ce_dict["low"] = ce_close, ce_high, ce_low
-
-            if pe_close == 0.0: pe_close = float(put_opts.get("closePrice") or put_opts.get("lastPrice") or 0.0)
-            if pe_high == 0.0: pe_high = float(put_opts.get("highPrice") or pe_close)
-            if pe_low == 0.0: pe_low = float(put_opts.get("lowPrice") or pe_close)
-            pe_dict["close"], pe_dict["high"], pe_dict["low"] = pe_close, pe_high, pe_low
-
-        if s_val == sniper1_atm_strike:
-            s1_atm_ce_val = get_strike_close_price(w_bhav, item, s_val, "CE")
-            s1_atm_pe_val = get_strike_close_price(w_bhav, item, s_val, "PE")
-        if s_val == target_s1_ce_strike: s1_ce_val = get_strike_close_price(w_bhav, item, s_val, "CE")
-        if s_val == target_s1_pe_strike: s1_pe_val = get_strike_close_price(w_bhav, item, s_val, "PE")
-
-        if s_val == sniper2_atm_strike:
-            s2_atm_ce_val = get_strike_close_price(w_bhav, item, s_val, "CE")
-            s2_atm_pe_val = get_strike_close_price(w_bhav, item, s_val, "PE")
-        if s_val == target_s2_ce_strike: s2_ce_val = get_strike_close_price(w_bhav, item, s_val, "CE")
-        if s_val == target_s2_pe_strike: s2_pe_val = get_strike_close_price(w_bhav, item, s_val, "PE")
+    s2_atm_ce_val = w_bhav.get((sniper2_atm_strike, "CE"), {}).get("close", 0.0)
+    s2_atm_pe_val = w_bhav.get((sniper2_atm_strike, "PE"), {}).get("close", 0.0)
+    s2_ce_val = w_bhav.get((target_s2_ce_strike, "CE"), {}).get("close", 0.0)
+    s2_pe_val = w_bhav.get((target_s2_pe_strike, "PE"), {}).get("close", 0.0)
 
     ce_tag, ce_class = get_market_sentiment_tag(ce_dict)
     pe_tag, pe_class = get_market_sentiment_tag(pe_dict)
@@ -378,20 +272,14 @@ def process_and_save_data(res_json, spot, w_exp, m_exp):
     wl = int(math.floor(spot / 100.0) * 100)
     wh = int(math.ceil(spot / 100.0) * 100)
 
-    weekly_zones = calculate_zone_row_one(wl, wh, w_bhav, res_json, w_exp)
-    monthly_zones = calculate_zone_row_one(wl, wh, m_bhav, res_json, m_exp)
-
-    formatted_expiry = ""
-    try:
-        formatted_expiry = datetime.datetime.strptime(w_exp, "%d-%b-%Y").strftime("%d-%b-%Y").upper()
-    except Exception:
-        formatted_expiry = w_exp
+    weekly_zones = calculate_zone_row_one(wl, wh, w_bhav)
+    monthly_zones = calculate_zone_row_one(wl, wh, m_bhav)
 
     payload = {
         "dataStatus": "SUCCESS",
         "bhavcopyReady": bhavcopy_is_ready,
         "currentDate": today_str,
-        "expiryDate": formatted_expiry,
+        "expiryDate": w_exp,
         "spotPrice": spot,
         "hlcAtmStrike": hlc_atm_strike,
         "ce": {"high": round(ce_high, 2), "close": round(ce_close, 2), "low": round(ce_low, 2)},
@@ -422,28 +310,14 @@ def process_and_save_data(res_json, spot, w_exp, m_exp):
     with open("data.json", "w") as f:
         json.dump(payload, f, indent=4)
         
-    print(f"Data saved. Bhavcopy status: {bhavcopy_is_ready}")
+    print(f"Data saved successfully. Spot: {spot}, Bhavcopy status: {bhavcopy_is_ready}")
     push_to_github()
 
 
 if __name__ == "__main__":
-    if os.path.exists("data.json"):
-        try:
-            with open("data.json", "r") as f:
-                existing_data = json.load(f)
-                now_ist = datetime.datetime.now(IST)
-                today_str = now_ist.strftime("%d %b %Y").upper()
-                
-                if existing_data.get("currentDate") == today_str and existing_data.get("bhavcopyReady") is True:
-                    print("✅ Bhavcopy already successfully fetched and saved for today. Skipping execution.")
-                    exit(0)
-        except Exception:
-            pass
-
-    spot, res = fetch_live_spot_and_chain()
-    if res and spot > 0:
-        w_exp, m_exp = get_expiries_from_chain(res)
-        print(f"Detected Spot: {spot}, Weekly Expiry: {w_exp}, Monthly Expiry: {m_exp}")
-        process_and_save_data(res, spot, w_exp, m_exp)
+    spot = fetch_live_spot_from_yahoo()
+    if spot > 0:
+        print(f"Retrieved Spot Price from Yahoo Finance: {spot}")
+        process_and_save_data(spot)
     else:
-        print("Failed to retrieve market data from public sources.")
+        print("Failed to retrieve spot price.")
