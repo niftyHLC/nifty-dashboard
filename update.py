@@ -315,6 +315,21 @@ def process_and_save_data(spot):
 
 
 if __name__ == "__main__":
+    # Check if data.json already exists and has today's Bhavcopy ready
+    if os.path.exists("data.json"):
+        try:
+            with open("data.json", "r") as f:
+                existing_data = json.load(f)
+                now_ist = datetime.datetime.now(IST)
+                today_str = now_ist.strftime("%d %b %Y").upper()
+                
+                # If today's data is already saved AND the Bhavcopy was successfully fetched, stop right here!
+                if existing_data.get("currentDate") == today_str and existing_data.get("bhavcopyReady") is True:
+                    print("✅ Today's Bhavcopy is already downloaded and processed. Stopping execution for today.")
+                    exit(0)
+        except Exception:
+            pass
+
     spot = fetch_live_spot_from_yahoo()
     if spot > 0:
         print(f"Retrieved Spot Price from Yahoo Finance: {spot}")
