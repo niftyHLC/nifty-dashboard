@@ -1,58 +1,53 @@
 {
-    "dataStatus": "SUCCESS",
-    "bhavcopyReady": true,
-    "currentDate": "08 SEP 2026",
-    "lastExecutionDate": "07 SEP 2026",
-    "expiryDate": "2026-09-07",
-    "spotPrice": 23779.150390625,
-    "hlcAtmStrike": 23800,
-    "ce": {
-        "high": 0.0,
-        "close": 0.0,
-        "low": 0.0
-    },
-    "pe": {
-        "high": 0.0,
-        "close": 0.0,
-        "low": 0.0
-    },
-    "ceTag": "NEUTRAL",
-    "ceClass": "tag-neutral",
-    "peTag": "NEUTRAL",
-    "peClass": "tag-neutral",
-    "bannerTotal": 0.0,
-    "minSupply": 23800.0,
-    "minDemand": 23800.0,
-    "maxSupply": 23800.0,
-    "maxDemand": 23800.0,
-    "weeklyZones": {
-        "line1": 23800.0,
-        "line2": 23700.0
-    },
-    "monthlyZones": {
-        "line1": 23800.0,
-        "line2": 23700.0
-    },
-    "spotHigh": 23779.150390625,
-    "spotLow": 23779.150390625,
-    "sniper1": {
-        "strike": 23800,
-        "ce": 0.0,
-        "pe": 0.0,
-        "otmCeStrike": 23900,
-        "otmPeStrike": 23700,
-        "otmCe": 0.0,
-        "otmPe": 0.0,
-        "value": 0.0
-    },
-    "sniper2": {
-        "strike": 23800,
-        "ce": 0.0,
-        "pe": 0.0,
-        "otmCeStrike": 23900,
-        "otmPeStrike": 23700,
-        "otmCe": 0.0,
-        "otmPe": 0.0,
-        "value": 0.0
-    }
+  "bhavcopyReady": true,
+  "spotPrice": 24850.75,
+  "currentDate": "07 SEP 2026",
+  "expiryDate": "10 SEP 2026",
+  "hlcAtmStrike": "24850",
+  "ce": {
+    "close": 145.20,
+    "high": 180.50,
+    "low": 110.00
+  },
+  "pe": {
+    "close": 132.80,
+    "high": 165.00,
+    "low": 95.40
+  },
+  "ceTag": "BUYERS",
+  "ceClass": "tag-buyers",
+  "peTag": "SELLERS",
+  "peClass": "tag-sellers",
+  "minSupply": 24700.00,
+  "minDemand": 25000.00,
+  "maxSupply": 24500.00,
+  "maxDemand": 25200.00,
+  "weeklyZones": {
+    "line1": 25100.00,
+    "line2": 24600.00
+  },
+  "monthlyZones": {
+    "line1": 25500.00,
+    "line2": 24000.00
+  },
+  "sniper1": {
+    "strike": "24800",
+    "ce": 172.50,
+    "pe": 110.20,
+    "otmCeStrike": "25000",
+    "otmPeStrike": "24600",
+    "otmCe": 68.30,
+    "otmPe": 42.10,
+    "value": 282.70
+  },
+  "sniper2": {
+    "strike": "24850",
+    "ce": 145.20,
+    "pe": 132.80,
+    "otmCeStrike": "25050",
+    "otmPeStrike": "24650",
+    "otmCe": 55.40,
+    "otmPe": 48.90,
+    "value": 278.00
+  }
 }
