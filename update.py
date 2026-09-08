@@ -66,8 +66,10 @@ def download_today_bhavcopy():
         
         if response.status_code == 200 and len(response.content) > 1000:
             if os.path.exists("bhavcopy.csv"):
-                try: os.remove("bhavcopy.csv")
-                except Exception: pass
+                try: 
+                    os.remove("bhavcopy.csv")
+                except Exception: 
+                    pass
 
             with zipfile.ZipFile(io.BytesIO(response.content)) as z:
                 csv_filename = z.namelist()[0]
