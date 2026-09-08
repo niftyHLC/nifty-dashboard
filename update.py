@@ -249,6 +249,13 @@ def process_and_save_data(spot):
     
     if sorted_expiries:
         w_exp = sorted_expiries[0]
+        
+        # --- TUESDAY 3:30 PM ROLLOVER RULE ---
+        # If today is Tuesday and it's past 3:30 PM, roll over to the next expiry index if available
+        if now_ist.weekday() == 1 and market_closed_today:
+            if len(sorted_expiries) > 1:
+                w_exp = sorted_expiries[1]
+                print("⏰ Tuesday past 3:30 PM detected: Rolled over active expiry to next week.")
     else:
         w_exp = now_ist.strftime("%d-%m-%y").upper()
 
