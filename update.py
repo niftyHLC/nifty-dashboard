@@ -227,14 +227,10 @@ def process_and_save_data(spot):
     sorted_expiries_tuples = sorted(list(all_expiries_dt), key=lambda x: x[0])
     sorted_expiries = [item[1] for item in sorted_expiries_tuples]
     
-    # Check if today is Tuesday (weekday() == 1) and time is past 3:30 PM (15:30)
-    is_post_expiry_cutoff = (now_ist.weekday() == 1) and (now_ist.time() >= datetime.time(15, 30))
-    
+    # After Tuesday 3:30 PM, today's expired contract drops off the file, 
+    # making sorted_expiries[0] automatically point to the next weekly expiry.
     if sorted_expiries:
-        if is_post_expiry_cutoff and len(sorted_expiries) > 1:
-            w_exp = sorted_expiries[1]  # Shifts to next week's expiry automatically
-        else:
-            w_exp = sorted_expiries[0]
+        w_exp = sorted_expiries[0]
     else:
         w_exp = now_ist.strftime("%d-%m-%y").upper()
 
