@@ -48,7 +48,7 @@ def fetch_live_spot_from_yahoo():
 
 
 def download_today_bhavcopy():
-    """Downloads official Bhavcopy directly from NSE archives (archives are not blocked like the API)."""
+    """Downloads official Bhavcopy directly from NSE archives."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
@@ -87,7 +87,7 @@ def download_today_bhavcopy():
             print(f"Successfully downloaded TODAY'S Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
             return True
         else:
-            print(f"⏳ Today's Bhavcopy is not available yet on NSE archives (Status Code: {response.status_code}).")
+            print(f"⚠️ Data Not Ready Yet , Please Wait (Status Code: {response.status_code}).")
     except Exception as e:
         print(f"⚠️ Error while trying to download Bhavcopy: {e}")
         
@@ -204,7 +204,6 @@ def process_and_save_data(spot):
 
     bhavcopy_is_ready = download_today_bhavcopy()
 
-    # Determine active expiry from Bhavcopy dates available
     all_expiries = set()
     if os.path.exists("bhavcopy.csv"):
         with open("bhavcopy.csv", mode="r", encoding="utf-8", errors="ignore") as f:
@@ -215,7 +214,6 @@ def process_and_save_data(spot):
                 if exp:
                     all_expiries.add(exp.strip().upper())
 
-    # Pick the nearest valid expiry date
     sorted_expiries = sorted(list(all_expiries))
     w_exp = sorted_expiries[0] if sorted_expiries else now_ist.strftime("%d-%b-%Y").upper()
     m_exp = sorted_expiries[-1] if sorted_expiries else w_exp
@@ -317,7 +315,6 @@ def process_and_save_data(spot):
 
 
 if __name__ == "__main__":
-    # Check if data.json already exists and has today's Bhavcopy ready
     if os.path.exists("data.json"):
         try:
             with open("data.json", "r") as f:
@@ -325,7 +322,6 @@ if __name__ == "__main__":
                 now_ist = datetime.datetime.now(IST)
                 today_str = now_ist.strftime("%d %b %Y").upper()
                 
-                # If today's data is already saved AND the Bhavcopy was successfully fetched, stop right here!
                 if existing_data.get("currentDate") == today_str and existing_data.get("bhavcopyReady") is True:
                     print("✅ Today's Bhavcopy is already downloaded and processed. Stopping execution for today.")
                     exit(0)
