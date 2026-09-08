@@ -215,7 +215,18 @@ def process_and_save_data(spot):
                     all_expiries.add(exp.strip().upper())
 
     sorted_expiries = sorted(list(all_expiries))
-    w_exp = sorted_expiries[0] if sorted_expiries else now_ist.strftime("%d-%b-%Y").upper()
+    
+    # Check if today is Tuesday (weekday() == 1) and time is past 3:30 PM (15:30)
+    is_post_expiry_cutoff = (now_ist.weekday() == 1) and (now_ist.time() >= datetime.time(15, 30))
+    
+    if sorted_expiries:
+        if is_post_expiry_cutoff and len(sorted_expiries) > 1:
+            w_exp = sorted_expiries[1]  # Shift to next expiry if past Tuesday 3:30 PM
+        else:
+            w_exp = sorted_expiries[0]
+    else:
+        w_exp = now_ist.strftime("%d-%b-%Y").upper()
+
     m_exp = sorted_expiries[-1] if sorted_expiries else w_exp
 
     w_bhav = load_bhavcopy_dict(w_exp)
