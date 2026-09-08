@@ -18,6 +18,7 @@ def push_to_github():
         subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
         subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
         
+        # Force add both data.json and bhavcopy.csv to ensure they are tracked
         subprocess.run(["git", "add", "-f", "data.json"], check=False)
         if os.path.exists("bhavcopy.csv"):
             subprocess.run(["git", "add", "-f", "bhavcopy.csv"], check=False)
@@ -25,13 +26,13 @@ def push_to_github():
         diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
         
         if diff_check.returncode != 0:
-            subprocess.run(["git", "commit", "-m", "Auto-update dashboard and bhavcopy status [skip ci]"], check=True)
+            subprocess.run(["git", "commit", "-m", "Auto-update dashboard and bhavcopy file [skip ci]"], check=True)
             subprocess.run(["git", "push", "origin", "main"], check=True)
             print("Changes pushed to GitHub successfully.")
         else:
             print("No changes detected in repository. Skipping commit.")
     except Exception as e:
-        print(f"Git push failed: {e}")
+        print(f"Test/Git push failed: {e}")
 
 
 def fetch_live_spot_from_yahoo():
@@ -87,7 +88,7 @@ def download_today_bhavcopy():
             print(f"Successfully downloaded TODAY'S Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
             return True
         else:
-            print(f"⚠️ Data Not Ready Yet , Please Wait (Status Code: {response.status_code}).")
+            print(f"⚠️ Data Not Ready Yet, Please Wait (Status Code: {response.status_code}).")
     except Exception as e:
         print(f"⚠️ Error while trying to download Bhavcopy: {e}")
         
@@ -227,8 +228,6 @@ def process_and_save_data(spot):
     sorted_expiries_tuples = sorted(list(all_expiries_dt), key=lambda x: x[0])
     sorted_expiries = [item[1] for item in sorted_expiries_tuples]
     
-    # After Tuesday 3:30 PM, today's expired contract drops off the file, 
-    # making sorted_expiries[0] automatically point to the next weekly expiry.
     if sorted_expiries:
         w_exp = sorted_expiries[0]
     else:
