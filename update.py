@@ -130,7 +130,7 @@ def load_bhavcopy_dict(target_expiry_str):
                     continue
 
                 strike_raw = (cleaned_row.get("STRKPRIC") or cleaned_row.get("STRIKEPRIC") or 
-                             cleaned_row.get("STRIKE_PR") or cleaned_row.get("STRIKE") or "0")
+                           cleaned_row.get("STRIKE_PR") or cleaned_row.get("STRIKE") or "0")
                 try:
                     row_strike = int(round(float(strike_raw)))
                 except ValueError:
@@ -192,7 +192,7 @@ def calculate_zone_row_one(wl, wh, bhav_map):
 
     return {
         "line1": round(wh + ce2, 2),  
-        "line2": round(wl - pe1, 2)   
+        "line2": round(wl - pe1, 2)    
     }
 
 
@@ -226,8 +226,23 @@ def process_and_save_data(spot):
                     if dt_parsed:
                         all_expiries_dt.add((dt_parsed, exp_clean))
 
-    # Chronological sort of expiry dates
-    sorted_expiries_tuples = sorted(list(all_expiries_dt), key=lambda x: x[0])
+    # Check if market has closed for today (Past 3:30 PM IST / 15:30)
+    market_closed_today = (now_ist.hour > 15) or (now_ist.hour == 15 and now_ist.minute >= 30)
+    today_dt = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Filter expiries: exclude today's expiry if market is already closed
+    valid_tuples = []
+    for item in all_expiries_dt:
+        exp_date = item[0]
+        if exp_date > today_dt:
+            valid_tuples.append(item)
+        elif exp_date == today_dt and not market_closed_today:
+            valid_tuples.append(item)
+
+    if not valid_tuples:
+        valid_tuples = list(all_expiries_dt)
+
+    sorted_expiries_tuples = sorted(valid_tuples, key=lambda x: x[0])
     sorted_expiries = [item[1] for item in sorted_expiries_tuples]
     
     if sorted_expiries:
