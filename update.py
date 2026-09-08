@@ -103,20 +103,19 @@ def load_bhavcopy_dict(target_expiry_str):
     clean_target = target_expiry_str.strip().upper()
     possible_expiries.add(clean_target)
     
-    try:
-        dt_obj = datetime.datetime.strptime(clean_target, "%Y-%m-%d")
-        possible_expiries.add(dt_obj.strftime("%Y-%m-%d"))
-        possible_expiries.add(dt_obj.strftime("%d-%b-%Y").upper())
-        possible_expiries.add(dt_obj.strftime("%d-%B-%Y").upper())
-        possible_expiries.add(dt_obj.strftime("%d%b%Y").upper())
-        possible_expiries.add(dt_obj.strftime("%d%b%y").upper())
-    except Exception:
+    date_formats = ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y")
+    
+    dt_obj = None
+    for fmt in date_formats:
         try:
-            dt_obj = datetime.datetime.strptime(clean_target, "%d-%b-%Y")
-            possible_expiries.add(dt_obj.strftime("%Y-%m-%d"))
-            possible_expiries.add(dt_obj.strftime("%d-%b-%Y").upper())
-        except Exception:
-            pass
+            dt_obj = datetime.datetime.strptime(clean_target, fmt)
+            break
+        except ValueError:
+            continue
+
+    if dt_obj:
+        for fmt in date_formats:
+            possible_expiries.add(dt_obj.strftime(fmt).upper())
 
     try:
         with open("bhavcopy.csv", mode="r", encoding="utf-8", errors="ignore") as f:
@@ -204,7 +203,7 @@ def process_and_save_data(spot):
 
     bhavcopy_is_ready = download_today_bhavcopy()
 
-    all_expiries = set()
+    all_expiries_dt = set()
     if os.path.exists("bhavcopy.csv"):
         with open("bhavcopy.csv", mode="r", encoding="utf-8", errors="ignore") as f:
             reader = csv.DictReader(f)
@@ -212,20 +211,32 @@ def process_and_save_data(spot):
                 cleaned_row = {k.strip().upper(): (v.strip() if v else "") for k, v in row.items() if k}
                 exp = cleaned_row.get("XPRYDT") or cleaned_row.get("EXPIRY_DT") or cleaned_row.get("EXPIRY")
                 if exp:
-                    all_expiries.add(exp.strip().upper())
+                    exp_clean = exp.strip().upper()
+                    dt_parsed = None
+                    date_formats = ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y")
+                    for fmt in date_formats:
+                        try:
+                            dt_parsed = datetime.datetime.strptime(exp_clean, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    if dt_parsed:
+                        all_expiries_dt.add((dt_parsed, exp_clean))
 
-    sorted_expiries = sorted(list(all_expiries))
+    # Chronological sort of expiry dates
+    sorted_expiries_tuples = sorted(list(all_expiries_dt), key=lambda x: x[0])
+    sorted_expiries = [item[1] for item in sorted_expiries_tuples]
     
     # Check if today is Tuesday (weekday() == 1) and time is past 3:30 PM (15:30)
     is_post_expiry_cutoff = (now_ist.weekday() == 1) and (now_ist.time() >= datetime.time(15, 30))
     
     if sorted_expiries:
         if is_post_expiry_cutoff and len(sorted_expiries) > 1:
-            w_exp = sorted_expiries[1]  # Shift to next expiry if past Tuesday 3:30 PM
+            w_exp = sorted_expiries[1]  # Shifts to next week's expiry automatically
         else:
             w_exp = sorted_expiries[0]
     else:
-        w_exp = now_ist.strftime("%d-%b-%Y").upper()
+        w_exp = now_ist.strftime("%d-%m-%y").upper()
 
     m_exp = sorted_expiries[-1] if sorted_expiries else w_exp
 
