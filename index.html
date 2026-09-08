@@ -33,6 +33,7 @@
             flex-direction: column;
             gap: 12px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            position: relative;
         }
 
         .warning-banner {
@@ -275,6 +276,26 @@
 <body>
 
 <div class="dashboard">
+    <!-- Floating Manual Upload Button -->
+    <div style="position: absolute; top: 16px; right: 16px; z-index: 10;">
+        <input type="file" id="bhavFileInput" accept=".csv" style="display: none;" onchange="uploadBhavcopyToGitHub(event)">
+        <button onclick="document.getElementById('bhavFileInput').click()" title="Manual Upload Bhavcopy CSV" style="
+            background-color: #2ea44f; 
+            color: white; 
+            border: none; 
+            border-radius: 50%; 
+            width: 32px; 
+            height: 32px; 
+            font-size: 18px; 
+            cursor: pointer; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        ">+</button>
+    </div>
+
     <div id="bhavcopyAlert" class="warning-banner"></div>
 
     <div class="header">
@@ -474,7 +495,6 @@
             document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             
-            // Render Weekly and Monthly Row 1 zones from JSON payload
             document.getElementById('wHigh').innerText = (Number(data.weeklyZones?.line1) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('wLow').innerText = (Number(data.weeklyZones?.line2) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('mHigh').innerText = (Number(data.monthlyZones?.line1) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -513,6 +533,67 @@
         } catch (e) {
             console.error("Error loading dashboard data:", e);
         }
+    }
+
+    // GitHub Manual Upload Handler
+    async function uploadBhavcopyToGitHub(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!confirm(`Are you sure you want to upload ${file.name} to GitHub?`)) {
+            event.target.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const base64Content = btoa(unescape(encodeURIComponent(e.target.result)));
+
+            const owner = "shamsy";               // Your GitHub username
+            const repoCode = "1985";              // Repository code / name updated here
+            const path = "bhavcopy.csv";          // Target path in your repo
+            const token = "YOUR_GITHUB_PAT";      // Replace with your GitHub Personal Access Token
+
+            const apiUrl = `https://api.github.com/repos/${owner}/${repoCode}/contents/${path}`;
+
+            try {
+                let sha = null;
+                const getResponse = await fetch(apiUrl, {
+                    headers: { "Authorization": `token ${token}` }
+                });
+                if (getResponse.ok) {
+                    const fileData = await getResponse.json();
+                    sha = fileData.sha;
+                }
+
+                const bodyData = {
+                    message: "Manual Bhavcopy upload via Dashboard UI [skip ci]",
+                    content: base64Content,
+                    sha: sha 
+                };
+
+                const putResponse = await fetch(apiUrl, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `token ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(bodyData)
+                });
+
+                if (putResponse.ok) {
+                    alert("✅ Bhavcopy uploaded successfully! GitHub Actions is processing your data.");
+                    location.reload();
+                } else {
+                    const errJson = await putResponse.json();
+                    alert(`❌ Upload failed: ${errJson.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error("Error uploading file:", error);
+                alert("❌ Network error while uploading file.");
+            }
+        };
+        reader.readAsText(file);
     }
 
     updateDashboard();
