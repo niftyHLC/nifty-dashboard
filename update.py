@@ -228,7 +228,9 @@ def process_and_save_data(spot):
 
     # Check if market has closed for today (Past 3:30 PM IST / 15:30)
     market_closed_today = (now_ist.hour > 15) or (now_ist.hour == 15 and now_ist.minute >= 30)
-    today_dt = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Make today_dt offset-naive to match CSV parsed dates
+    today_dt = now_ist.replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Filter expiries: exclude today's expiry if market is already closed
     valid_tuples = []
