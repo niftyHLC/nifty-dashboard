@@ -469,15 +469,17 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                const parsed = JSON.parse(e.target.result);
+                const rawText = e.target.result;
+                const parsed = JSON.parse(rawText);
+                
                 // Force source to MANUAL to lock in warning banner state
                 parsed.source = "MANUAL";
                 manualDataPayload = parsed;
                 renderDashboard(manualDataPayload);
                 document.getElementById('refreshTimer').innerText = 'MANUAL MODE ACTIVE';
             } catch (err) {
-                alert("Invalid JSON file format.");
-                console.error(err);
+                console.error("JSON Parsing Error Details:", err);
+                alert("Invalid JSON file format. Please check your console (F12) for specific syntax errors.");
             }
         };
         reader.readAsText(file);
@@ -594,7 +596,7 @@
             document.getElementById('snip2Val').innerText = (Number(data.sniper2.value) || 0).toFixed(2);
         }
 
-        // Fix: Use bannerTotal (Sum of CE + PE close) instead of absolute difference for Earth calculation
+        // Earth calculation uses bannerTotal (sum of CE + PE close)
         document.getElementById('earthVal').innerText = (bannerTotal * 0.1215).toFixed(2);
     }
 
