@@ -418,7 +418,11 @@
 
             const alertBanner = document.getElementById('bhavcopyAlert');
 
-            if (data.bhavcopyReady === false) {
+            if (data.source === 'MANUAL') {
+                alertBanner.innerText = '🛡️ MANUAL MODE ACTIVE (Auto-updates bypassed)';
+                alertBanner.style.backgroundColor = '#0284c7';
+                alertBanner.style.display = 'block';
+            } else if (data.bhavcopyReady === false) {
                 alertBanner.innerText = '⚠️ Data Not Ready Yet , Please Wait';
                 alertBanner.style.backgroundColor = '#dc2626';
                 alertBanner.style.display = 'block';
