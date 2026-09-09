@@ -19,7 +19,7 @@
             color: #f3f4f6;
             display: flex;
             justify-content: center;
-            padding: 20px 10px;
+            padding: 20px 10px 60px 10px;
         }
 
         .dashboard {
@@ -33,6 +33,7 @@
             flex-direction: column;
             gap: 12px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            position: relative;
         }
 
         .warning-banner {
@@ -270,6 +271,33 @@
             justify-content: space-between;
             align-items: center;
         }
+
+        /* Floating Manual Upload Button Style */
+        .fab-upload {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: #0ea5e9;
+            color: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.5);
+            cursor: pointer;
+            border: none;
+            z-index: 1000;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .fab-upload:hover {
+            background: #0284c7;
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
@@ -405,118 +433,156 @@
     </div>
 </div>
 
+<!-- Hidden File Input & Floating Plus Button -->
+<input type="file" id="manualFileInput" accept=".json" style="display: none;">
+<button class="fab-upload" id="uploadBtn" title="Upload Manual JSON Data">+</button>
+
 <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(err => console.error('SW Registration Failed:', err));
     }
 
+    let manualDataPayload = null;
+
+    // Handle Manual File Selection via Floating Button
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('manualFileInput');
+
+    uploadBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const parsed = JSON.parse(e.target.result);
+                // Force source to MANUAL to lock in warning banner state
+                parsed.source = "MANUAL";
+                manualDataPayload = parsed;
+                renderDashboard(manualDataPayload);
+            } catch (err) {
+                alert("Invalid JSON file format.");
+                console.error(err);
+            }
+        };
+        reader.readAsText(file);
+    });
+
     async function updateDashboard() {
+        // If user has loaded a manual file, skip background fetch to preserve manual state
+        if (manualDataPayload) return;
+
         try {
             const response = await fetch(`data.json?t=${Date.now()}`);
             if (!response.ok) return;
             const data = await response.json();
-
-            const alertBanner = document.getElementById('bhavcopyAlert');
-
-            if (data.source === 'MANUAL') {
-                alertBanner.innerText = '🛡️ MANUAL MODE ACTIVE (Auto-updates bypassed)';
-                alertBanner.style.backgroundColor = '#0284c7';
-                alertBanner.style.display = 'block';
-            } else if (data.bhavcopyReady === false) {
-                alertBanner.innerText = '⚠️ Data Not Ready Yet , Please Wait';
-                alertBanner.style.backgroundColor = '#dc2626';
-                alertBanner.style.display = 'block';
-            } else {
-                alertBanner.innerText = '';
-                alertBanner.style.display = 'none';
-            }
-
-            const spotPrice = Number(data.spotPrice) || 0;
-            const ceClose = Number(data.ce?.close) || 0;
-            const ceHigh = Number(data.ce?.high) || 0;
-            const ceLow = Number(data.ce?.low) || 0;
-            const peClose = Number(data.pe?.close) || 0;
-            const peHigh = Number(data.pe?.high) || 0;
-            const peLow = Number(data.pe?.low) || 0;
-
-            const cePeDiff = Math.abs(ceClose - peClose);
-            const bannerTotal = Number(data.bannerTotal) || (ceClose + peClose);
-
-            document.getElementById('spotPrice').innerText = spotPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('currentDate').innerText = data.currentDate || '--';
-            document.getElementById('expiryBadge').innerText = data.expiryDate || 'EXP ACTIVE';
-            document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
-
-            document.getElementById('bannerTotal').innerText = cePeDiff.toFixed(2);
-            document.getElementById('ceCloseHeader').innerText = ceClose.toFixed(2);
-            document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
-
-            const ceTagEl = document.getElementById('ceTag');
-            ceTagEl.innerText = data.ceTag || 'NEUTRAL';
-            ceTagEl.className = `card-tag ${data.ceClass || 'tag-neutral'}`;
-
-            document.getElementById('ceStrike').innerText = data.hlcAtmStrike || '-----';
-            document.getElementById('ceHigh').innerText = ceHigh.toFixed(2);
-            document.getElementById('ceClose').innerText = ceClose.toFixed(2);
-            document.getElementById('ceLow').innerText = ceLow.toFixed(2);
-            document.getElementById('ceHC').innerText = (ceHigh - ceClose).toFixed(2);
-            document.getElementById('ceCL').innerText = (ceClose - ceLow).toFixed(2);
-
-            const peTagEl = document.getElementById('peTag');
-            peTagEl.innerText = data.peTag || 'NEUTRAL';
-            peTagEl.className = `card-tag ${data.peClass || 'tag-neutral'}`;
-
-            document.getElementById('peStrike').innerText = data.hlcAtmStrike || '-----';
-            document.getElementById('peHigh').innerText = peHigh.toFixed(2);
-            document.getElementById('peClose').innerText = peClose.toFixed(2);
-            document.getElementById('peLow').innerText = peLow.toFixed(2);
-            document.getElementById('peHC').innerText = (peHigh - peClose).toFixed(2);
-            document.getElementById('peCL').innerText = (peClose - peLow).toFixed(2);
-
-            document.getElementById('minSupply').innerText = (Number(data.minSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('minDemand').innerText = (Number(data.minDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            
-            // Render Weekly and Monthly Row 1 zones from JSON payload
-            document.getElementById('wHigh').innerText = (Number(data.weeklyZones?.line1) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('wLow').innerText = (Number(data.weeklyZones?.line2) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('mHigh').innerText = (Number(data.monthlyZones?.line1) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('mLow').innerText = (Number(data.monthlyZones?.line2) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-
-            if (data.sniper1) {
-                const s1Ce = Number(data.sniper1.ce) || 0;
-                const s1Pe = Number(data.sniper1.pe) || 0;
-                document.getElementById('snip1Atm').innerText = data.sniper1.strike || '-----';
-                document.getElementById('snip1Ce').innerText = s1Ce.toFixed(2);
-                document.getElementById('snip1Pe').innerText = s1Pe.toFixed(2);
-                document.getElementById('snip1OtmCeStr').innerText = data.sniper1.otmCeStrike || 0;
-                document.getElementById('snip1OtmPeStr').innerText = data.sniper1.otmPeStrike || 0;
-                document.getElementById('snip1OtmCe').innerText = (Number(data.sniper1.otmCe) || 0).toFixed(2);
-                document.getElementById('snip1OtmPe').innerText = (Number(data.sniper1.otmPe) || 0).toFixed(2);
-                
-                document.getElementById('snip1Val').innerText = (Number(data.sniper1.value) || 0).toFixed(2);
-            }
-
-            if (data.sniper2) {
-                const s2Ce = Number(data.sniper2.ce) || 0;
-                const s2Pe = Number(data.sniper2.pe) || 0;
-                document.getElementById('snip2Atm').innerText = data.sniper2.strike || '-----';
-                document.getElementById('snip2Ce').innerText = s2Ce.toFixed(2);
-                document.getElementById('snip2Pe').innerText = s2Pe.toFixed(2);
-                document.getElementById('snip2OtmCeStr').innerText = data.sniper2.otmCeStrike || 0;
-                document.getElementById('snip2OtmPeStr').innerText = data.sniper2.otmPeStrike || 0;
-                document.getElementById('snip2OtmCe').innerText = (Number(data.sniper2.otmCe) || 0).toFixed(2);
-                document.getElementById('snip2OtmPe').innerText = (Number(data.sniper2.otmPe) || 0).toFixed(2);
-                
-                document.getElementById('snip2Val').innerText = (Number(data.sniper2.value) || 0).toFixed(2);
-            }
-
-            document.getElementById('earthVal').innerText = (bannerTotal * 0.1215).toFixed(2);
-
+            renderDashboard(data);
         } catch (e) {
             console.error("Error loading dashboard data:", e);
         }
+    }
+
+    function renderDashboard(data) {
+        const alertBanner = document.getElementById('bhavcopyAlert');
+
+        if (data.source === 'MANUAL') {
+            alertBanner.innerText = '🛡️ MANUAL MODE ACTIVE (Auto-updates bypassed)';
+            alertBanner.style.backgroundColor = '#0284c7';
+            alertBanner.style.display = 'block';
+        } else if (data.bhavcopyReady === false) {
+            alertBanner.innerText = '⚠️ Data Not Ready Yet , Please Wait';
+            alertBanner.style.backgroundColor = '#dc2626';
+            alertBanner.style.display = 'block';
+        } else {
+            alertBanner.innerText = '';
+            alertBanner.style.display = 'none';
+        }
+
+        const spotPrice = Number(data.spotPrice) || 0;
+        const ceClose = Number(data.ce?.close) || 0;
+        const ceHigh = Number(data.ce?.high) || 0;
+        const ceLow = Number(data.ce?.low) || 0;
+        const peClose = Number(data.pe?.close) || 0;
+        const peHigh = Number(data.pe?.high) || 0;
+        const peLow = Number(data.pe?.low) || 0;
+
+        const cePeDiff = Math.abs(ceClose - peClose);
+        const bannerTotal = Number(data.bannerTotal) || (ceClose + peClose);
+
+        document.getElementById('spotPrice').innerText = spotPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('currentDate').innerText = data.currentDate || '--';
+        document.getElementById('expiryBadge').innerText = data.expiryDate || 'EXP ACTIVE';
+        document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
+
+        document.getElementById('bannerTotal').innerText = cePeDiff.toFixed(2);
+        document.getElementById('ceCloseHeader').innerText = ceClose.toFixed(2);
+        document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
+
+        const ceTagEl = document.getElementById('ceTag');
+        ceTagEl.innerText = data.ceTag || 'NEUTRAL';
+        ceTagEl.className = `card-tag ${data.ceClass || 'tag-neutral'}`;
+
+        document.getElementById('ceStrike').innerText = data.hlcAtmStrike || '-----';
+        document.getElementById('ceHigh').innerText = ceHigh.toFixed(2);
+        document.getElementById('ceClose').innerText = ceClose.toFixed(2);
+        document.getElementById('ceLow').innerText = ceLow.toFixed(2);
+        document.getElementById('ceHC').innerText = (ceHigh - ceClose).toFixed(2);
+        document.getElementById('ceCL').innerText = (ceClose - ceLow).toFixed(2);
+
+        const peTagEl = document.getElementById('peTag');
+        peTagEl.innerText = data.peTag || 'NEUTRAL';
+        peTagEl.className = `card-tag ${data.peClass || 'tag-neutral'}`;
+
+        document.getElementById('peStrike').innerText = data.hlcAtmStrike || '-----';
+        document.getElementById('peHigh').innerText = peHigh.toFixed(2);
+        document.getElementById('peClose').innerText = peClose.toFixed(2);
+        document.getElementById('peLow').innerText = peLow.toFixed(2);
+        document.getElementById('peHC').innerText = (peHigh - peClose).toFixed(2);
+        document.getElementById('peCL').innerText = (peClose - peLow).toFixed(2);
+
+        document.getElementById('minSupply').innerText = (Number(data.minSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('minDemand').innerText = (Number(data.minDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        
+        document.getElementById('wHigh').innerText = (Number(data.weeklyZones?.line1) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('wLow').innerText = (Number(data.weeklyZones?.line2) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('mHigh').innerText = (Number(data.monthlyZones?.line1) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('mLow').innerText = (Number(data.monthlyZones?.line2) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+        if (data.sniper1) {
+            const s1Ce = Number(data.sniper1.ce) || 0;
+            const s1Pe = Number(data.sniper1.pe) || 0;
+            document.getElementById('snip1Atm').innerText = data.sniper1.strike || '-----';
+            document.getElementById('snip1Ce').innerText = s1Ce.toFixed(2);
+            document.getElementById('snip1Pe').innerText = s1Pe.toFixed(2);
+            document.getElementById('snip1OtmCeStr').innerText = data.sniper1.otmCeStrike || 0;
+            document.getElementById('snip1OtmPeStr').innerText = data.sniper1.otmPeStrike || 0;
+            document.getElementById('snip1OtmCe').innerText = (Number(data.sniper1.otmCe) || 0).toFixed(2);
+            document.getElementById('snip1OtmPe').innerText = (Number(data.sniper1.otmPe) || 0).toFixed(2);
+            
+            document.getElementById('snip1Val').innerText = (Number(data.sniper1.value) || 0).toFixed(2);
+        }
+
+        if (data.sniper2) {
+            const s2Ce = Number(data.sniper2.ce) || 0;
+            const s2Pe = Number(data.sniper2.pe) || 0;
+            document.getElementById('snip2Atm').innerText = data.sniper2.strike || '-----';
+            document.getElementById('snip2Ce').innerText = s2Ce.toFixed(2);
+            document.getElementById('snip2Pe').innerText = s2Pe.toFixed(2);
+            document.getElementById('snip2OtmCeStr').innerText = data.sniper2.otmCeStrike || 0;
+            document.getElementById('snip2OtmPeStr').innerText = data.sniper2.otmPeStrike || 0;
+            document.getElementById('snip2OtmCe').innerText = (Number(data.sniper2.otmCe) || 0).toFixed(2);
+            document.getElementById('snip2OtmPe').innerText = (Number(data.sniper2.otmPe) || 0).toFixed(2);
+            
+            document.getElementById('snip2Val').innerText = (Number(data.sniper2.value) || 0).toFixed(2);
+        }
+
+        document.getElementById('earthVal').innerText = (bannerTotal * 0.1215).toFixed(2);
     }
 
     updateDashboard();
