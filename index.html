@@ -272,6 +272,13 @@
             align-items: center;
         }
 
+        .refresh-info {
+            font-size: 0.6rem;
+            color: #64748b;
+            text-align: center;
+            margin-top: -4px;
+        }
+
         /* Floating Manual Upload Button Style */
         .fab-upload {
             position: fixed;
@@ -431,6 +438,8 @@
         <div style="font-weight: 700; font-size: 0.85rem; color: #ffffff;">🌏 EARTH</div>
         <div class="sniper-val" style="color: #22c55e;" id="earthVal">0.00</div>
     </div>
+
+    <div class="refresh-info" id="refreshTimer">Next auto-refresh in 30s</div>
 </div>
 
 <!-- Hidden File Input & Floating Plus Button -->
@@ -443,6 +452,7 @@
     }
 
     let manualDataPayload = null;
+    let countdown = 30;
 
     // Handle Manual File Selection via Floating Button
     const uploadBtn = document.getElementById('uploadBtn');
@@ -464,6 +474,7 @@
                 parsed.source = "MANUAL";
                 manualDataPayload = parsed;
                 renderDashboard(manualDataPayload);
+                document.getElementById('refreshTimer').innerText = 'MANUAL MODE ACTIVE';
             } catch (err) {
                 alert("Invalid JSON file format.");
                 console.error(err);
@@ -481,6 +492,7 @@
             if (!response.ok) return;
             const data = await response.json();
             renderDashboard(data);
+            countdown = 30; // reset on successful fetch
         } catch (e) {
             console.error("Error loading dashboard data:", e);
         }
@@ -582,11 +594,26 @@
             document.getElementById('snip2Val').innerText = (Number(data.sniper2.value) || 0).toFixed(2);
         }
 
+        // Fix: Use bannerTotal (Sum of CE + PE close) instead of absolute difference for Earth calculation
         document.getElementById('earthVal').innerText = (bannerTotal * 0.1215).toFixed(2);
     }
 
+    // Initial Load
     updateDashboard();
-    setInterval(updateDashboard, 30000);
+
+    // Polling and Countdown Timer loop
+    setInterval(() => {
+        if (manualDataPayload) return;
+        countdown--;
+        if (countdown <= 0) {
+            updateDashboard();
+            countdown = 30;
+        }
+        const timerEl = document.getElementById('refreshTimer');
+        if (timerEl) {
+            timerEl.innerText = `Next auto-refresh in ${countdown}s`;
+        }
+    }, 1000);
 </script>
 
 </body>
