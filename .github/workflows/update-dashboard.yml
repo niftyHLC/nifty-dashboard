@@ -2,10 +2,25 @@ name: Update Dashboard Data
 
 on:
   schedule:
-    # Runs every 15 minutes from 5:00 PM IST to 9:30 PM IST (11:30 UTC to 16:00 UTC) Mon-Fri
-    - cron: '30,45 11 * * 1-5'
-    - cron: '0,15,30,45 12-15 * * 1-5'
-    - cron: '0 16 * * 1-5'
+    # 3:30 PM IST
+    - cron: '0 10 * * 1-5'
+    
+    # 5:00 PM to 9:00 PM IST (Excluding 7:15 PM and 8:15 PM IST)
+    - cron: '30 11 * * 1-5'  # 5:00 PM IST
+    - cron: '45 11 * * 1-5'  # 5:15 PM IST
+    - cron: '0 12 * * 1-5'   # 5:30 PM IST
+    - cron: '15 12 * * 1-5'  # 5:45 PM IST
+    - cron: '30 12 * * 1-5'  # 6:00 PM IST
+    - cron: '45 12 * * 1-5'  # 6:15 PM IST
+    - cron: '0 13 * * 1-5'   # 6:30 PM IST
+    - cron: '15 13 * * 1-5'  # 6:45 PM IST
+    - cron: '30 13 * * 1-5'  # 7:00 PM IST
+    - cron: '0 14 * * 1-5'   # 7:30 PM IST
+    - cron: '15 14 * * 1-5'  # 7:45 PM IST
+    - cron: '30 14 * * 1-5'  # 8:00 PM IST
+    - cron: '0 15 * * 1-5'   # 8:30 PM IST
+    - cron: '15 15 * * 1-5'  # 8:45 PM IST
+    - cron: '30 15 * * 1-5'  # 9:00 PM IST
 
   workflow_dispatch:
 
