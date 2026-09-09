@@ -1,32 +1,33 @@
 {
+    "source": "AUTOMATED",
     "dataStatus": "SUCCESS",
-    "bhavcopyReady": false,
+    "bhavcopyReady": true,
     "currentDate": "09 SEP 2026",
     "expiryDate": "2026-09-15",
     "spotPrice": 23431.5,
-    "hlcAtmStrike": 23700,
+    "hlcAtmStrike": 23500,
     "ce": {
-        "high": 181.6,
-        "close": 122.85,
-        "low": 114.65
+        "high": 203.95,
+        "close": 127.05,
+        "low": 111.0
     },
     "pe": {
-        "high": 140.9,
-        "close": 127.55,
-        "low": 98.5
+        "high": 135.5,
+        "close": 116.5,
+        "low": 73.8
     },
     "ceTag": "NEUTRAL",
     "ceClass": "tag-neutral",
     "peTag": "NEUTRAL",
     "peClass": "tag-neutral",
-    "bannerTotal": 250.4,
-    "minSupply": 23822.85,
-    "minDemand": 23572.45,
-    "maxSupply": 23950.4,
-    "maxDemand": 23449.6,
+    "bannerTotal": 243.55,
+    "minSupply": 23627.05,
+    "minDemand": 23383.5,
+    "maxSupply": 23743.55,
+    "maxDemand": 23256.45,
     "weeklyZones": {
-        "line1": 23749.35,
-        "line2": 23365.35
+        "line1": 23627.05,
+        "line2": 23321.9
     },
     "monthlyZones": {
         "line1": 23500.0,
@@ -36,22 +37,22 @@
     "spotLow": 23431.5,
     "sniper1": {
         "strike": 23400,
-        "ce": 328.5,
-        "pe": 34.65,
+        "ce": 187.65,
+        "pe": 78.1,
         "otmCeStrike": 23500,
         "otmPeStrike": 23300,
-        "otmCe": 249.35,
-        "otmPe": 22.0,
-        "value": 135.68
+        "otmCe": 127.05,
+        "otmPe": 50.65,
+        "value": 88.85
     },
     "sniper2": {
-        "strike": 23700,
-        "ce": 122.85,
-        "pe": 127.55,
-        "otmCeStrike": 23800,
-        "otmPeStrike": 23600,
-        "otmCe": 79.1,
-        "otmPe": 85.2,
-        "value": 82.15
+        "strike": 23500,
+        "ce": 127.05,
+        "pe": 116.5,
+        "otmCeStrike": 23600,
+        "otmPeStrike": 23400,
+        "otmCe": 81.0,
+        "otmPe": 78.1,
+        "value": 79.55
     }
 }
