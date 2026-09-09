@@ -226,10 +226,13 @@ def process_and_save_data(spot):
                     if dt_parsed:
                         all_expiries_dt.add((dt_parsed, exp_clean))
 
+    # Check if market has closed for today (Past 3:30 PM IST / 15:30)
     market_closed_today = (now_ist.hour > 15) or (now_ist.hour == 15 and now_ist.minute >= 30)
     
+    # Make today_dt offset-naive to match CSV parsed dates
     today_dt = now_ist.replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
 
+    # Filter expiries: exclude today's expiry if market is already closed
     valid_tuples = []
     for item in all_expiries_dt:
         exp_date = item[0]
@@ -247,6 +250,8 @@ def process_and_save_data(spot):
     if sorted_expiries:
         w_exp = sorted_expiries[0]
         
+        # --- TUESDAY 3:30 PM ROLLOVER RULE ---
+        # If today is Tuesday and it's past 3:30 PM, roll over to the next expiry index if available
         if now_ist.weekday() == 1 and market_closed_today:
             if len(sorted_expiries) > 1:
                 w_exp = sorted_expiries[1]
@@ -314,7 +319,6 @@ def process_and_save_data(spot):
     monthly_zones = calculate_zone_row_one(wl, wh, m_bhav)
 
     payload = {
-        "source": "AUTOMATED",
         "dataStatus": "SUCCESS",
         "bhavcopyReady": bhavcopy_is_ready,
         "currentDate": today_str,
@@ -361,12 +365,11 @@ if __name__ == "__main__":
                 now_ist = datetime.datetime.now(IST)
                 today_str = now_ist.strftime("%d %b %Y").upper()
                 
-                if existing_data.get("currentDate") == today_str:
-                    if existing_data.get("source") == "MANUAL" or existing_data.get("bhavcopyReady") is True:
-                        print("✅ Today's data (Manual or Automated) is already present. Skipping execution to protect existing data.")
-                        exit(0)
-        except Exception as e:
-            print(f"Error reading existing data.json: {e}")
+                if existing_data.get("currentDate") == today_str and existing_data.get("bhavcopyReady") is True:
+                    print("✅ Today's Bhavcopy is already downloaded and processed. Stopping execution for today.")
+                    exit(0)
+        except Exception:
+            pass
 
     spot = fetch_live_spot_from_yahoo()
     if spot > 0:
