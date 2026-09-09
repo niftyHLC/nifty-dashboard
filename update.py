@@ -319,6 +319,7 @@ def process_and_save_data(spot):
     monthly_zones = calculate_zone_row_one(wl, wh, m_bhav)
 
     payload = {
+        "source": "AUTOMATED",
         "dataStatus": "SUCCESS",
         "bhavcopyReady": bhavcopy_is_ready,
         "currentDate": today_str,
@@ -365,11 +366,13 @@ if __name__ == "__main__":
                 now_ist = datetime.datetime.now(IST)
                 today_str = now_ist.strftime("%d %b %Y").upper()
                 
-                if existing_data.get("currentDate") == today_str and existing_data.get("bhavcopyReady") is True:
-                    print("✅ Today's Bhavcopy is already downloaded and processed. Stopping execution for today.")
-                    exit(0)
-        except Exception:
-            pass
+                if existing_data.get("currentDate") == today_str:
+                    # Protect manual uploads or already processed data from automated overrides
+                    if existing_data.get("source") == "MANUAL" or existing_data.get("bhavcopyReady") is True:
+                        print("✅ Today's data (Manual or Automated) is already present. Skipping execution to protect existing data.")
+                        exit(0)
+        except Exception as e:
+            print(f"Error reading existing data.json: {e}")
 
     spot = fetch_live_spot_from_yahoo()
     if spot > 0:
