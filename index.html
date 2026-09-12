@@ -68,7 +68,6 @@
             font-weight: 600;
         }
 
-        /* --- Removed background, padding, and border-radius from badge-exp, setting display to inline --- */
         .badge-exp-container {
             display: flex;
             align-items: center;
@@ -143,6 +142,24 @@
             border: 1px solid #1e293b;
             border-radius: 10px;
             padding: 12px;
+            transition: all 0.3s ease;
+        }
+
+        /* Dynamic Card States for Buyers & Sellers */
+        .card.card-buyers {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.05);
+        }
+        .card.card-buyers .hcl-val {
+            color: #22c55e !important;
+        }
+
+        .card.card-sellers {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.05);
+        }
+        .card.card-sellers .hcl-val {
+            color: #ef4444 !important;
         }
 
         .card-tag {
@@ -194,6 +211,12 @@
 
         .hcl-close {
             color: #eab308;
+        }
+
+        /* Keep Close color neutral yellow or let it inherit if preferred, or override if needed */
+        .card.card-buyers .hcl-close,
+        .card.card-sellers .hcl-close {
+            /* optional: keep close yellow or let it match. Keeping it default hcl-close or inheriting */
         }
 
         .diff-footer {
@@ -301,7 +324,6 @@
             margin-top: -4px;
         }
 
-        /* Floating Manual Upload Button Style */
         .fab-upload {
             position: fixed;
             bottom: 20px;
@@ -358,7 +380,7 @@
 
     <div class="grid-2">
         <!-- Call Option Card -->
-        <div class="card">
+        <div class="card" id="ceCard">
             <div id="ceTag" class="card-tag tag-neutral">NEUTRAL</div>
             <div class="strike-header">
                 <span id="ceStrike">-----</span>
@@ -376,7 +398,7 @@
         </div>
 
         <!-- Put Option Card -->
-        <div class="card">
+        <div class="card" id="peCard">
             <div id="peTag" class="card-tag tag-neutral">NEUTRAL</div>
             <div class="strike-header">
                 <span id="peStrike">-----</span>
@@ -479,7 +501,6 @@
     let manualDataPayload = null;
     let countdown = 30;
 
-    // Helper function to format any date string into DD-MM-YYYY format
     function formatDateToDDMMYYYY(dateString) {
         if (!dateString) return '-- -- ----';
         
@@ -519,7 +540,6 @@
         return dateString;
     }
 
-    // Handle Manual File Selection via Floating Button
     const uploadBtn = document.getElementById('uploadBtn');
     const fileInput = document.getElementById('manualFileInput');
 
@@ -564,6 +584,7 @@
     }
 
     function renderDashboard(data) {
+        if (!data) return;
         const alertBanner = document.getElementById('bhavcopyAlert');
 
         if (data.source === 'MANUAL') {
@@ -601,9 +622,15 @@
         document.getElementById('ceCloseHeader').innerText = ceClose.toFixed(2);
         document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
 
+        // CE Card & Tag updates
         const ceTagEl = document.getElementById('ceTag');
+        const ceCardEl = document.getElementById('ceCard');
         ceTagEl.innerText = data.ceTag || 'NEUTRAL';
         ceTagEl.className = `card-tag ${data.ceClass || 'tag-neutral'}`;
+
+        ceCardEl.className = 'card';
+        if (data.ceClass === 'tag-buyers') ceCardEl.classList.add('card-buyers');
+        if (data.ceClass === 'tag-sellers') ceCardEl.classList.add('card-sellers');
 
         document.getElementById('ceStrike').innerText = data.hlcAtmStrike || '-----';
         document.getElementById('ceHigh').innerText = ceHigh.toFixed(2);
@@ -612,9 +639,15 @@
         document.getElementById('ceHC').innerText = (ceHigh - ceClose).toFixed(2);
         document.getElementById('ceCL').innerText = (ceClose - ceLow).toFixed(2);
 
+        // PE Card & Tag updates
         const peTagEl = document.getElementById('peTag');
+        const peCardEl = document.getElementById('peCard');
         peTagEl.innerText = data.peTag || 'NEUTRAL';
         peTagEl.className = `card-tag ${data.peClass || 'tag-neutral'}`;
+
+        peCardEl.className = 'card';
+        if (data.peClass === 'tag-buyers') peCardEl.classList.add('card-buyers');
+        if (data.peClass === 'tag-sellers') peCardEl.classList.add('card-sellers');
 
         document.getElementById('peStrike').innerText = data.hlcAtmStrike || '-----';
         document.getElementById('peHigh').innerText = peHigh.toFixed(2);
@@ -664,10 +697,8 @@
         document.getElementById('earthVal').innerText = (bannerTotal * 0.1215).toFixed(2);
     }
 
-    // Initial Load
     updateDashboard();
 
-    // Polling and Countdown Timer loop
     setInterval(() => {
         if (manualDataPayload) return;
         countdown--;
