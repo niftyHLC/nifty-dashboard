@@ -23,20 +23,20 @@ def get_market_holidays():
     if current_year == 2026:
         holiday_set.update({
             datetime.date(2026, 1, 15),  # Municipal Corp Election
-            datetime.date(2026, 3, 3),   # Holi
-            datetime.date(2026, 3, 26),  # Shri Ram Navami
-            datetime.date(2026, 3, 31),  # Shri Mahavir Jayanti
-            datetime.date(2026, 4, 3),   # Good Friday
-            datetime.date(2026, 4, 14),  # Dr. Baba Saheb Ambedkar Jayanti
-            datetime.date(2026, 5, 1),   # Maharashtra Day
-            datetime.date(2026, 5, 28),  # Bakri Id
-            datetime.date(2026, 6, 26),  # Muharram
-            datetime.date(2026, 9, 14),  # Ganesh Chaturthi
-            datetime.date(2026, 10, 2),  # Mahatma Gandhi Jayanti
-            datetime.date(2026, 10, 20), # Dussehra
-            datetime.date(2026, 11, 10), # Diwali-Balipratipada
-            datetime.date(2026, 11, 24), # Prakash Gurpurb
-            datetime.date(2026, 12, 25)  # Christmas
+            datetime.date(2026, 3, 3),    # Holi
+            datetime.date(2026, 3, 26),   # Shri Ram Navami
+            datetime.date(2026, 3, 31),   # Shri Mahavir Jayanti
+            datetime.date(2026, 4, 3),    # Good Friday
+            datetime.date(2026, 4, 14),   # Dr. Baba Saheb Ambedkar Jayanti
+            datetime.date(2026, 5, 1),    # Maharashtra Day
+            datetime.date(2026, 5, 28),   # Bakri Id
+            datetime.date(2026, 6, 26),   # Muharram
+            datetime.date(2026, 9, 14),   # Ganesh Chaturthi
+            datetime.date(2026, 10, 2),   # Mahatma Gandhi Jayanti
+            datetime.date(2026, 10, 20),  # Dussehra
+            datetime.date(2026, 11, 10),  # Diwali-Balipratipada
+            datetime.date(2026, 11, 24),  # Prakash Gurpurb
+            datetime.date(2026, 12, 25)   # Christmas
         })
         
     return holiday_set
@@ -192,24 +192,56 @@ def load_bhavcopy_dict(target_expiry_str):
     return bhav_map
 
 
-def get_market_sentiment_tag(data_dict):
+def calculate_dominance_metrics(data_dict):
+    """
+    Calculates H-C and C-L distances and applies the 1.5x rule:
+    - BUYERS (Green): (C - L) >= 1.5 * (H - C)
+    - SELLERS (Red):  (H - C) >= 1.5 * (C - L)
+    - NEUTRAL (Orange): Otherwise
+    """
     if not data_dict:
-        return "NEUTRAL", "tag-neutral"
+        return {
+            "high": 0.0, "close": 0.0, "low": 0.0,
+            "hc": 0.0, "cl": 0.0,
+            "dominance": "NEUTRAL",
+            "themeColor": "orange",
+            "tagClass": "tag-neutral"
+        }
     
-    close = data_dict.get("close", 0.0)
-    open_p = data_dict.get("open", 0.0)
     high = data_dict.get("high", 0.0)
     low = data_dict.get("low", 0.0)
-    chg_oi = data_dict.get("chg_oi", 0.0)
-
-    price_up = close >= open_p
-    if chg_oi > 0:
-        if price_up or (high - low > 0 and (close - low) / (high - low) > 0.5):
-            return "BUYERS", "tag-buyers"
-        else:
-            return "SELLERS", "tag-sellers"
-            
-    return "NEUTRAL", "tag-neutral"
+    close = data_dict.get("close", 0.0)
+    
+    hc = round(high - close, 2)
+    cl = round(close - low, 2)
+    
+    if high == low or (hc == 0 and cl == 0):
+        dominance = "NEUTRAL"
+        theme_color = "orange"
+        tag_class = "tag-neutral"
+    elif cl >= (1.5 * hc):
+        dominance = "BUYERS"
+        theme_color = "green"
+        tag_class = "tag-buyers"
+    elif hc >= (1.5 * cl):
+        dominance = "SELLERS"
+        theme_color = "red"
+        tag_class = "tag-sellers"
+    else:
+        dominance = "NEUTRAL"
+        theme_color = "orange"
+        tag_class = "tag-neutral"
+        
+    return {
+        "high": round(high, 2),
+        "close": round(close, 2),
+        "low": round(low, 2),
+        "hc": hc,
+        "cl": cl,
+        "dominance": dominance,
+        "themeColor": theme_color,
+        "tagClass": tag_class
+    }
 
 
 def calculate_zone_row_one(wl, wh, bhav_map):
@@ -312,8 +344,8 @@ def process_and_save_data(spot, force_not_ready=False):
     ce_dict = w_bhav.get((int(hlc_atm_strike), "CE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0})
     pe_dict = w_bhav.get((int(hlc_atm_strike), "PE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0})
 
-    ce_high, ce_low, ce_close = ce_dict.get("high", 0.0), ce_dict.get("low", 0.0), ce_dict.get("close", 0.0)
-    pe_high, pe_low, pe_close = pe_dict.get("high", 0.0), pe_dict.get("low", 0.0), pe_dict.get("close", 0.0)
+    ce_metrics = calculate_dominance_metrics(ce_dict)
+    pe_metrics = calculate_dominance_metrics(pe_dict)
 
     s1_atm_ce_val = w_bhav.get((sniper1_atm_strike, "CE"), {}).get("close", 0.0)
     s1_atm_pe_val = w_bhav.get((sniper1_atm_strike, "PE"), {}).get("close", 0.0)
@@ -325,16 +357,13 @@ def process_and_save_data(spot, force_not_ready=False):
     s2_ce_val = w_bhav.get((target_s2_ce_strike, "CE"), {}).get("close", 0.0)
     s2_pe_val = w_bhav.get((target_s2_pe_strike, "PE"), {}).get("close", 0.0)
 
-    ce_tag, ce_class = get_market_sentiment_tag(ce_dict)
-    pe_tag, pe_class = get_market_sentiment_tag(pe_dict)
-
     sniper1_val = round((s1_ce_val + s1_pe_val) / 2.0, 2)
     sniper2_val = round((s2_ce_val + s2_pe_val) / 2.0, 2)
 
-    min_supply_val = round(hlc_atm_strike + ce_close, 2)
-    min_demand_val = round(hlc_atm_strike - pe_close, 2)
-    max_supply_val = round(hlc_atm_strike + (ce_close + pe_close), 2)
-    max_demand_val = round(hlc_atm_strike - (ce_close + pe_close), 2)
+    min_supply_val = round(hlc_atm_strike + ce_metrics["close"], 2)
+    min_demand_val = round(hlc_atm_strike - pe_metrics["close"], 2)
+    max_supply_val = round(hlc_atm_strike + (ce_metrics["close"] + pe_metrics["close"]), 2)
+    max_demand_val = round(hlc_atm_strike - (ce_metrics["close"] + pe_metrics["close"]), 2)
 
     wl = int(math.floor(spot / 100.0) * 100) if spot > 0 else 23300
     wh = int(math.ceil(spot / 100.0) * 100) if spot > 0 else 23400
@@ -349,11 +378,13 @@ def process_and_save_data(spot, force_not_ready=False):
         "expiryDate": w_exp,
         "spotPrice": spot,
         "hlcAtmStrike": hlc_atm_strike,
-        "ce": {"high": round(ce_high, 2), "close": round(ce_close, 2), "low": round(ce_low, 2)},
-        "pe": {"high": round(pe_high, 2), "close": round(pe_close, 2), "low": round(pe_low, 2)},
-        "ceTag": ce_tag, "ceClass": ce_class,
-        "peTag": pe_tag, "peClass": pe_class,
-        "bannerTotal": round(ce_close + pe_close, 2),
+        "ce": ce_metrics,
+        "pe": pe_metrics,
+        "ceTag": ce_metrics["dominance"], 
+        "ceClass": ce_metrics["tagClass"],
+        "peTag": pe_metrics["dominance"], 
+        "peClass": pe_metrics["tagClass"],
+        "bannerTotal": round(ce_metrics["close"] + pe_metrics["close"], 2),
         "minSupply": min_supply_val,
         "minDemand": min_demand_val,
         "maxSupply": max_supply_val,
