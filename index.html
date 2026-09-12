@@ -68,6 +68,20 @@
             font-weight: 600;
         }
 
+        .badge-exp-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-exp-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
         .badge-exp {
             background: rgba(14, 165, 233, 0.1);
             border: 1px solid #0ea5e9;
@@ -321,7 +335,10 @@
             <span class="spot-title">NIFTY</span>
             <span class="spot-price" id="spotPrice">--.--</span>
         </div>
-        <div class="badge-exp" id="expiryBadge">EXP ACTIVE</div>
+        <div class="badge-exp-container">
+            <span class="badge-exp-label">Exp :</span>
+            <div class="badge-exp" id="expiryBadge">-- -- ----</div>
+        </div>
     </div>
 
     <div class="sub-header">
@@ -462,8 +479,6 @@
     function formatDateToDDMMYYYY(dateString) {
         if (!dateString) return '-- -- ----';
         
-        // If it's already in a format like DD-MM-YYYY or DD/MM/YYYY, return cleanly adjusted
-        // Let's parse standard inputs (e.g. "2026-06-05" or "12 Jul 2026" or "12-07-2026")
         const parsedDate = new Date(dateString);
         if (!isNaN(parsedDate.getTime())) {
             const day = String(parsedDate.getDate()).padStart(2, '0');
@@ -472,14 +487,12 @@
             return `${day}-${month}-${year}`;
         }
         
-        // Fallback: try manual parsing if text contains month names like "12 Jul 2026"
         const months = {
             'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
             'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
         };
         
         let cleanStr = dateString.toLowerCase().trim();
-        // Check parts
         let parts = cleanStr.split(/[\s-/]+/);
         if (parts.length === 3) {
             let day = parts[0].padStart(2, '0');
@@ -499,7 +512,7 @@
             }
         }
         
-        return dateString; // Return original if parsing fails completely
+        return dateString;
     }
 
     // Handle Manual File Selection via Floating Button
@@ -520,7 +533,6 @@
                 const rawText = e.target.result;
                 const parsed = JSON.parse(rawText);
                 
-                // Force source to MANUAL to lock in warning banner state
                 parsed.source = "MANUAL";
                 manualDataPayload = parsed;
                 renderDashboard(manualDataPayload);
@@ -534,7 +546,6 @@
     });
 
     async function updateDashboard() {
-        // If user has loaded a manual file, skip background fetch to preserve manual state
         if (manualDataPayload) return;
 
         try {
@@ -542,7 +553,7 @@
             if (!response.ok) return;
             const data = await response.json();
             renderDashboard(data);
-            countdown = 30; // reset on successful fetch
+            countdown = 30;
         } catch (e) {
             console.error("Error loading dashboard data:", e);
         }
@@ -577,7 +588,6 @@
 
         document.getElementById('spotPrice').innerText = spotPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
-        // Formatted Date to DD-MM-YYYY
         document.getElementById('currentDate').innerText = formatDateToDDMMYYYY(data.currentDate);
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
         
@@ -647,7 +657,6 @@
             document.getElementById('snip2Val').innerText = (Number(data.sniper2.value) || 0).toFixed(2);
         }
 
-        // Earth calculation uses bannerTotal (sum of CE + PE close)
         document.getElementById('earthVal').innerText = (bannerTotal * 0.1215).toFixed(2);
     }
 
