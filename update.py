@@ -6,30 +6,21 @@ import math
 import os
 import subprocess
 import zipfile
+import holidays
 import requests
 import yfinance as yf
 
 # Indian Standard Time (IST) offset
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
-# List of known NSE trading holidays for 2026
-MARKET_HOLIDAYS_2026 = {
-    datetime.date(2026, 1, 26),  # Republic Day
-    datetime.date(2026, 3, 3),   # Holi
-    datetime.date(2026, 3, 26),  # Shri Ram Navami
-    datetime.date(2026, 3, 31),  # Shri Mahavir Jayanti
-    datetime.date(2026, 4, 3),   # Good Friday
-    datetime.date(2026, 4, 14),  # Dr. Baba Saheb Ambedkar Jayanti
-    datetime.date(2026, 5, 1),   # Maharashtra Day
-    datetime.date(2026, 5, 28),  # Bakri Id
-    datetime.date(2026, 6, 26),  # Muharram
-    datetime.date(2026, 9, 14),  # Ganesh Chaturthi
-    datetime.date(2026, 10, 2),  # Mahatma Gandhi Jayanti
-    datetime.date(2026, 10, 20), # Dussehra
-    datetime.date(2026, 11, 10), # Diwali-Balipratipada
-    datetime.date(2026, 11, 24), # Prakash Gurpurb
-    datetime.date(2026, 12, 25)  # Christmas
-}
+def get_market_holidays():
+    """Dynamically fetches Indian public/market holidays for the current year."""
+    current_year = datetime.datetime.now(IST).year
+    in_holidays = holidays.India(years=current_year)
+    return set(in_holidays.keys())
+
+# Dynamically loaded holidays for the current active year (e.g., 2026, 2027, etc.)
+MARKET_HOLIDAYS = get_market_holidays()
 
 
 def push_to_github():
@@ -44,7 +35,7 @@ def push_to_github():
         diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
         
         if diff_check.returncode != 0:
-            subprocess.run(["git", "commit", -m, "Auto-update weekend/holiday status [skip ci]"], check=True)
+            subprocess.run(["git", "commit", "-m", "Auto-update weekend/holiday status [skip ci]"], check=True)
             subprocess.run(["git", "push", "origin", "main"], check=True)
             print("Changes pushed to GitHub successfully.")
         else:
@@ -213,10 +204,11 @@ def calculate_zone_row_one(wl, wh, bhav_map):
 
 
 def get_display_date(now_ist):
-    """Calculates the next active trading day, skipping weekends and market holidays."""
+    """Calculates the next active trading day, skipping weekends and dynamically fetched market holidays."""
     target = now_ist.date()
+    current_year_holidays = get_market_holidays()
     while True:
-        if target.weekday() >= 5 or target in MARKET_HOLIDAYS_2026:
+        if target.weekday() >= 5 or target in current_year_holidays:
             target += datetime.timedelta(days=1)
         else:
             break
@@ -370,7 +362,8 @@ if __name__ == "__main__":
     today_date = now_ist.date()
     
     is_weekend = today_date.weekday() >= 5
-    is_holiday = today_date in MARKET_HOLIDAYS_2026
+    current_year_holidays = get_market_holidays()
+    is_holiday = today_date in current_year_holidays
 
     # On weekends or holidays, force bhavcopyReady to False so dashboard shows "Data Not Ready Yet"
     if is_weekend or is_holiday:
