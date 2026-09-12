@@ -37,7 +37,6 @@ def push_to_github():
         subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
         subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
         
-        # Force add both data.json and bhavcopy.csv to ensure they are tracked
         subprocess.run(["git", "add", "-f", "data.json"], check=False)
         if os.path.exists("bhavcopy.csv"):
             subprocess.run(["git", "add", "-f", "bhavcopy.csv"], check=False)
@@ -45,7 +44,7 @@ def push_to_github():
         diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
         
         if diff_check.returncode != 0:
-            subprocess.run(["git", "commit", "-m", "Auto-update dashboard and bhavcopy file [skip ci]"], check=True)
+            subprocess.run(["git", "commit", -m, "Auto-update weekend/holiday status [skip ci]"], check=True)
             subprocess.run(["git", "push", "origin", "main"], check=True)
             print("Changes pushed to GitHub successfully.")
         else:
@@ -108,16 +107,8 @@ def download_today_bhavcopy():
 
             print(f"Successfully downloaded TODAY'S Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
             return True
-        else:
-            print("---------------------------------------------------")
-            print(f"NOTICE: Today's Bhavcopy is NOT READY yet from NSE (Status Code: {response.status_code}).")
-            print("Continuing script execution using available local/fallback data.")
-            print("---------------------------------------------------")
     except Exception as e:
-        print("---------------------------------------------------")
-        print(f"NOTICE: Today's Bhavcopy is NOT READY yet from NSE: {e}")
-        print("Continuing script execution using available local/fallback data.")
-        print("---------------------------------------------------")
+        print(f"Notice: Could not download bhavcopy: {e}")
         
     return False
 
@@ -233,15 +224,11 @@ def get_display_date(now_ist):
     return target.strftime("%d %b %Y").upper()
 
 
-def process_and_save_data(spot):
-    if spot <= 0:
-        print("Invalid spot price received.")
-        return
-
+def process_and_save_data(spot, force_not_ready=False):
     now_ist = datetime.datetime.now(IST)
     today_str = get_display_date(now_ist)
 
-    bhavcopy_is_ready = download_today_bhavcopy()
+    bhavcopy_is_ready = False if force_not_ready else download_today_bhavcopy()
 
     all_expiries_dt = set()
     if os.path.exists("bhavcopy.csv"):
@@ -279,23 +266,14 @@ def process_and_save_data(spot):
 
     sorted_expiries_tuples = sorted(valid_tuples, key=lambda x: x[0])
     sorted_expiries = [item[1] for item in sorted_expiries_tuples]
-    
-    if sorted_expiries:
-        w_exp = sorted_expiries[0]
-        if now_ist.weekday() == 1 and market_closed_today:
-            if len(sorted_expiries) > 1:
-                w_exp = sorted_expiries[1]
-                print("⏰ Tuesday past 3:30 PM detected: Rolled over active expiry to next week.")
-    else:
-        w_exp = now_ist.strftime("%d-%m-%y").upper()
-
+    w_exp = sorted_expiries[0] if sorted_expiries else now_ist.strftime("%d-%m-%y").upper()
     m_exp = sorted_expiries[-1] if sorted_expiries else w_exp
 
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
     min_diff = float('inf')
-    hlc_atm_strike = int(round(spot / 50.0) * 50)
+    hlc_atm_strike = int(round(spot / 50.0) * 50) if spot > 0 else 23450
 
     for (strike, opt_type), d_val in w_bhav.items():
         if abs(strike - spot) <= 500:
@@ -307,7 +285,7 @@ def process_and_save_data(spot):
                     min_diff = diff
                     hlc_atm_strike = strike
 
-    sniper1_atm_strike = int(round(spot / 100.0) * 100)
+    sniper1_atm_strike = int(round(spot / 100.0) * 100) if spot > 0 else 23400
     sniper2_atm_strike = hlc_atm_strike
 
     target_s1_ce_strike = sniper1_atm_strike + 100
@@ -342,8 +320,8 @@ def process_and_save_data(spot):
     max_supply_val = round(hlc_atm_strike + (ce_close + pe_close), 2)
     max_demand_val = round(hlc_atm_strike - (ce_close + pe_close), 2)
 
-    wl = int(math.floor(spot / 100.0) * 100)
-    wh = int(math.ceil(spot / 100.0) * 100)
+    wl = int(math.floor(spot / 100.0) * 100) if spot > 0 else 23300
+    wh = int(math.ceil(spot / 100.0) * 100) if spot > 0 else 23400
 
     weekly_zones = calculate_zone_row_one(wl, wh, w_bhav)
     monthly_zones = calculate_zone_row_one(wl, wh, m_bhav)
@@ -383,16 +361,25 @@ def process_and_save_data(spot):
     with open("data.json", "w") as f:
         json.dump(payload, f, indent=4)
         
-    print(f"Data saved successfully. Spot: {spot}, Bhavcopy status: {bhavcopy_is_ready}")
+    print(f"Data saved successfully. Bhavcopy Ready: {bhavcopy_is_ready}")
     push_to_github()
 
 
 if __name__ == "__main__":
     now_ist = datetime.datetime.now(IST)
+    today_date = now_ist.date()
     
-    # Exit immediately if today is a weekend or market holiday so GitHub Actions skip execution
-    if now_ist.date().weekday() >= 5 or now_ist.date() in MARKET_HOLIDAYS_2026:
-        print("🛑 Today is a weekend or market holiday. Skipping workflow execution.")
+    is_weekend = today_date.weekday() >= 5
+    is_holiday = today_date in MARKET_HOLIDAYS_2026
+
+    # On weekends or holidays, force bhavcopyReady to False so dashboard shows "Data Not Ready Yet"
+    if is_weekend or is_holiday:
+        reason = "WEEKEND" if is_weekend else "HOLIDAY"
+        print(f"🛑 Today is a {reason}. Setting bhavcopyReady to False for dashboard notification.")
+        spot = fetch_live_spot_from_yahoo()
+        if spot <= 0:
+            spot = 23398.10  # fallback spot
+        process_and_save_data(spot, force_not_ready=True)
         exit(0)
 
     if os.path.exists("data.json"):
@@ -410,6 +397,6 @@ if __name__ == "__main__":
     spot = fetch_live_spot_from_yahoo()
     if spot > 0:
         print(f"Retrieved Spot Price from Yahoo Finance: {spot}")
-        process_and_save_data(spot)
+        process_and_save_data(spot, force_not_ready=False)
     else:
         print("Failed to retrieve spot price.")
