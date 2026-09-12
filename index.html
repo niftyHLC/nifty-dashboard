@@ -326,7 +326,7 @@
 
     <div class="sub-header">
         <div>
-            <div class="date-box" id="currentDate">-- --- ----</div>
+            <div class="date-box" id="currentDate">-- -- ----</div>
             <div class="atm-box">HLC ATM <span id="hlcAtmStrike">-----</span></div>
         </div>
         <div style="text-align: right;">
@@ -458,6 +458,50 @@
     let manualDataPayload = null;
     let countdown = 30;
 
+    // Helper function to format any date string into DD-MM-YYYY format
+    function formatDateToDDMMYYYY(dateString) {
+        if (!dateString) return '-- -- ----';
+        
+        // If it's already in a format like DD-MM-YYYY or DD/MM/YYYY, return cleanly adjusted
+        // Let's parse standard inputs (e.g. "2026-06-05" or "12 Jul 2026" or "12-07-2026")
+        const parsedDate = new Date(dateString);
+        if (!isNaN(parsedDate.getTime())) {
+            const day = String(parsedDate.getDate()).padStart(2, '0');
+            const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+            const year = parsedDate.getFullYear();
+            return `${day}-${month}-${year}`;
+        }
+        
+        // Fallback: try manual parsing if text contains month names like "12 Jul 2026"
+        const months = {
+            'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
+            'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+        };
+        
+        let cleanStr = dateString.toLowerCase().trim();
+        // Check parts
+        let parts = cleanStr.split(/[\s-/]+/);
+        if (parts.length === 3) {
+            let day = parts[0].padStart(2, '0');
+            let month = parts[1];
+            let year = parts[2];
+            
+            if (months[month]) {
+                month = months[month];
+            } else if (months[month.substring(0,3)]) {
+                month = months[month.substring(0,3)];
+            }
+            month = String(month).padStart(2, '0');
+            if (year.length === 2) year = '20' + year;
+            
+            if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+                return `${day}-${month}-${year}`;
+            }
+        }
+        
+        return dateString; // Return original if parsing fails completely
+    }
+
     // Handle Manual File Selection via Floating Button
     const uploadBtn = document.getElementById('uploadBtn');
     const fileInput = document.getElementById('manualFileInput');
@@ -532,8 +576,11 @@
         const bannerTotal = Number(data.bannerTotal) || (ceClose + peClose);
 
         document.getElementById('spotPrice').innerText = spotPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('currentDate').innerText = data.currentDate || '--';
-        document.getElementById('expiryBadge').innerText = data.expiryDate || 'EXP ACTIVE';
+        
+        // Formatted Date to DD-MM-YYYY
+        document.getElementById('currentDate').innerText = formatDateToDDMMYYYY(data.currentDate);
+        document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
+        
         document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
 
         document.getElementById('bannerTotal').innerText = cePeDiff.toFixed(2);
