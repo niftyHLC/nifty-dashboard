@@ -202,13 +202,25 @@ def calculate_zone_row_one(wl, wh, bhav_map):
     }
 
 
+def get_display_date(now_ist):
+    """Calculates next trading day date if run on a weekend (Sat/Sun)."""
+    wday = now_ist.weekday()
+    if wday == 5:  # Saturday -> shifts to Monday
+        target = now_ist + datetime.timedelta(days=2)
+    elif wday == 6:  # Sunday -> shifts to Monday
+        target = now_ist + datetime.timedelta(days=1)
+    else:
+        target = now_ist
+    return target.strftime("%d %b %Y").upper()
+
+
 def process_and_save_data(spot):
     if spot <= 0:
         print("Invalid spot price received.")
         return
 
     now_ist = datetime.datetime.now(IST)
-    today_str = now_ist.strftime("%d %b %Y").upper()
+    today_str = get_display_date(now_ist)
 
     bhavcopy_is_ready = download_today_bhavcopy()
 
@@ -369,7 +381,7 @@ if __name__ == "__main__":
             with open("data.json", "r") as f:
                 existing_data = json.load(f)
                 now_ist = datetime.datetime.now(IST)
-                today_str = now_ist.strftime("%d %b %Y").upper()
+                today_str = get_display_date(now_ist)
                 
                 if existing_data.get("currentDate") == today_str and existing_data.get("bhavcopyReady") is True:
                     print("✅ Today's Bhavcopy is already downloaded and processed. Stopping execution for today.")
