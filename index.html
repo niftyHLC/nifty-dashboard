@@ -68,13 +68,13 @@
             font-weight: 600;
         }
 
+        /* --- Removed background, padding, and border-radius from badge-exp, setting display to inline --- */
         .badge-exp-container {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 2px;
         }
 
-        /* --- Changed "Exp :" text color to white --- */
         .badge-exp-label {
             font-size: 0.65rem;
             font-weight: 700;
@@ -84,12 +84,12 @@
         }
 
         .badge-exp {
-            background: rgba(14, 165, 233, 0.1);
+            background: transparent;
             color: #38bdf8;
             font-size: 0.65rem;
             font-weight: 700;
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 0;
+            border-radius: 0;
         }
 
         .sub-header {
@@ -272,7 +272,6 @@
             margin-bottom: 6px;
         }
 
-        /* --- Changed OTM subtitle text color to white --- */
         .sniper-sub-text {
             font-size: 0.65rem;
             color: #ffffff;
@@ -342,7 +341,7 @@
         </div>
         <div class="badge-exp-container">
             <span class="badge-exp-label">Exp :</span>
-            <div class="badge-exp" id="expiryBadge">-- -- ----</div>
+            <span class="badge-exp" id="expiryBadge">-- -- ----</span>
         </div>
     </div>
 
