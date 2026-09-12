@@ -203,14 +203,34 @@ def calculate_zone_row_one(wl, wh, bhav_map):
 
 
 def get_display_date(now_ist):
-    """Calculates next trading day date if run on a weekend (Sat/Sun)."""
-    wday = now_ist.weekday()
-    if wday == 5:  # Saturday -> shifts to Monday
-        target = now_ist + datetime.timedelta(days=2)
-    elif wday == 6:  # Sunday -> shifts to Monday
-        target = now_ist + datetime.timedelta(days=1)
-    else:
-        target = now_ist
+    """Calculates the next active trading day, skipping weekends and market holidays."""
+    # List of known NSE trading holidays for 2026 (add more if needed)
+    market_holidays = {
+        datetime.date(2026, 1, 26),  # Republic Day
+        datetime.date(2026, 3, 3),   # Holi
+        datetime.date(2026, 3, 26),  # Shri Ram Navami
+        datetime.date(2026, 3, 31),  # Shri Mahavir Jayanti
+        datetime.date(2026, 4, 3),   # Good Friday
+        datetime.date(2026, 4, 14),  # Dr. Baba Saheb Ambedkar Jayanti
+        datetime.date(2026, 5, 1),   # Maharashtra Day
+        datetime.date(2026, 5, 28),  # Bakri Id
+        datetime.date(2026, 6, 26),  # Muharram
+        datetime.date(2026, 9, 14),  # Ganesh Chaturthi
+        datetime.date(2026, 10, 2),  # Mahatma Gandhi Jayanti
+        datetime.date(2026, 10, 20), # Dussehra
+        datetime.date(2026, 11, 10), # Diwali-Balipratipada
+        datetime.date(2026, 11, 24), # Prakash Gurpurb
+        datetime.date(2026, 12, 25)  # Christmas
+    }
+    
+    target = now_ist.date()
+    while True:
+        # Check if weekend (Sat=5, Sun=6) or listed holiday
+        if target.weekday() >= 5 or target in market_holidays:
+            target += datetime.timedelta(days=1)
+        else:
+            break
+            
     return target.strftime("%d %b %Y").upper()
 
 
@@ -244,13 +264,9 @@ def process_and_save_data(spot):
                     if dt_parsed:
                         all_expiries_dt.add((dt_parsed, exp_clean))
 
-    # Check if market has closed for today (Past 3:30 PM IST / 15:30)
     market_closed_today = (now_ist.hour > 15) or (now_ist.hour == 15 and now_ist.minute >= 30)
-    
-    # Make today_dt offset-naive to match CSV parsed dates
     today_dt = now_ist.replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Filter expiries: exclude today's expiry if market is already closed
     valid_tuples = []
     for item in all_expiries_dt:
         exp_date = item[0]
@@ -267,9 +283,6 @@ def process_and_save_data(spot):
     
     if sorted_expiries:
         w_exp = sorted_expiries[0]
-        
-        # --- TUESDAY 3:30 PM ROLLOVER RULE ---
-        # If today is Tuesday and it's past 3:30 PM, roll over to the next expiry index if available
         if now_ist.weekday() == 1 and market_closed_today:
             if len(sorted_expiries) > 1:
                 w_exp = sorted_expiries[1]
