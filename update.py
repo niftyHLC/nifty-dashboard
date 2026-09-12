@@ -12,6 +12,25 @@ import yfinance as yf
 # Indian Standard Time (IST) offset
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
+# List of known NSE trading holidays for 2026
+MARKET_HOLIDAYS_2026 = {
+    datetime.date(2026, 1, 26),  # Republic Day
+    datetime.date(2026, 3, 3),   # Holi
+    datetime.date(2026, 3, 26),  # Shri Ram Navami
+    datetime.date(2026, 3, 31),  # Shri Mahavir Jayanti
+    datetime.date(2026, 4, 3),   # Good Friday
+    datetime.date(2026, 4, 14),  # Dr. Baba Saheb Ambedkar Jayanti
+    datetime.date(2026, 5, 1),   # Maharashtra Day
+    datetime.date(2026, 5, 28),  # Bakri Id
+    datetime.date(2026, 6, 26),  # Muharram
+    datetime.date(2026, 9, 14),  # Ganesh Chaturthi
+    datetime.date(2026, 10, 2),  # Mahatma Gandhi Jayanti
+    datetime.date(2026, 10, 20), # Dussehra
+    datetime.date(2026, 11, 10), # Diwali-Balipratipada
+    datetime.date(2026, 11, 24), # Prakash Gurpurb
+    datetime.date(2026, 12, 25)  # Christmas
+}
+
 
 def push_to_github():
     try:
@@ -204,29 +223,9 @@ def calculate_zone_row_one(wl, wh, bhav_map):
 
 def get_display_date(now_ist):
     """Calculates the next active trading day, skipping weekends and market holidays."""
-    # List of known NSE trading holidays for 2026 (add more if needed)
-    market_holidays = {
-        datetime.date(2026, 1, 26),  # Republic Day
-        datetime.date(2026, 3, 3),   # Holi
-        datetime.date(2026, 3, 26),  # Shri Ram Navami
-        datetime.date(2026, 3, 31),  # Shri Mahavir Jayanti
-        datetime.date(2026, 4, 3),   # Good Friday
-        datetime.date(2026, 4, 14),  # Dr. Baba Saheb Ambedkar Jayanti
-        datetime.date(2026, 5, 1),   # Maharashtra Day
-        datetime.date(2026, 5, 28),  # Bakri Id
-        datetime.date(2026, 6, 26),  # Muharram
-        datetime.date(2026, 9, 14),  # Ganesh Chaturthi
-        datetime.date(2026, 10, 2),  # Mahatma Gandhi Jayanti
-        datetime.date(2026, 10, 20), # Dussehra
-        datetime.date(2026, 11, 10), # Diwali-Balipratipada
-        datetime.date(2026, 11, 24), # Prakash Gurpurb
-        datetime.date(2026, 12, 25)  # Christmas
-    }
-    
     target = now_ist.date()
     while True:
-        # Check if weekend (Sat=5, Sun=6) or listed holiday
-        if target.weekday() >= 5 or target in market_holidays:
+        if target.weekday() >= 5 or target in MARKET_HOLIDAYS_2026:
             target += datetime.timedelta(days=1)
         else:
             break
@@ -389,11 +388,17 @@ def process_and_save_data(spot):
 
 
 if __name__ == "__main__":
+    now_ist = datetime.datetime.now(IST)
+    
+    # Exit immediately if today is a weekend or market holiday so GitHub Actions skip execution
+    if now_ist.date().weekday() >= 5 or now_ist.date() in MARKET_HOLIDAYS_2026:
+        print("🛑 Today is a weekend or market holiday. Skipping workflow execution.")
+        exit(0)
+
     if os.path.exists("data.json"):
         try:
             with open("data.json", "r") as f:
                 existing_data = json.load(f)
-                now_ist = datetime.datetime.now(IST)
                 today_str = get_display_date(now_ist)
                 
                 if existing_data.get("currentDate") == today_str and existing_data.get("bhavcopyReady") is True:
