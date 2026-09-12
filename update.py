@@ -14,12 +14,34 @@ import yfinance as yf
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
 def get_market_holidays():
-    """Dynamically fetches Indian public/market holidays for the current year."""
+    """Dynamically fetches Indian public holidays and includes specific NSE trading holidays."""
     current_year = datetime.datetime.now(IST).year
     in_holidays = holidays.India(years=current_year)
-    return set(in_holidays.keys())
+    holiday_set = set(in_holidays.keys())
+    
+    # Explicit NSE market trading holidays that may not be in standard public holiday sets
+    if current_year == 2026:
+        holiday_set.update({
+            datetime.date(2026, 1, 15),  # Municipal Corp Election
+            datetime.date(2026, 3, 3),   # Holi
+            datetime.date(2026, 3, 26),  # Shri Ram Navami
+            datetime.date(2026, 3, 31),  # Shri Mahavir Jayanti
+            datetime.date(2026, 4, 3),   # Good Friday
+            datetime.date(2026, 4, 14),  # Dr. Baba Saheb Ambedkar Jayanti
+            datetime.date(2026, 5, 1),   # Maharashtra Day
+            datetime.date(2026, 5, 28),  # Bakri Id
+            datetime.date(2026, 6, 26),  # Muharram
+            datetime.date(2026, 9, 14),  # Ganesh Chaturthi
+            datetime.date(2026, 10, 2),  # Mahatma Gandhi Jayanti
+            datetime.date(2026, 10, 20), # Dussehra
+            datetime.date(2026, 11, 10), # Diwali-Balipratipada
+            datetime.date(2026, 11, 24), # Prakash Gurpurb
+            datetime.date(2026, 12, 25)  # Christmas
+        })
+        
+    return holiday_set
 
-# Dynamically loaded holidays for the current active year (e.g., 2026, 2027, etc.)
+# Dynamically loaded holidays for the current active year
 MARKET_HOLIDAYS = get_market_holidays()
 
 
@@ -218,6 +240,8 @@ def get_display_date(now_ist):
 
 def process_and_save_data(spot, force_not_ready=False):
     now_ist = datetime.datetime.now(IST)
+    
+    # On weekends or holidays, this dynamically points to the next active trading day
     today_str = get_display_date(now_ist)
 
     bhavcopy_is_ready = False if force_not_ready else download_today_bhavcopy()
@@ -365,7 +389,6 @@ if __name__ == "__main__":
     current_year_holidays = get_market_holidays()
     is_holiday = today_date in current_year_holidays
 
-    # On weekends or holidays, force bhavcopyReady to False so dashboard shows "Data Not Ready Yet"
     if is_weekend or is_holiday:
         reason = "WEEKEND" if is_weekend else "HOLIDAY"
         print(f"🛑 Today is a {reason}. Setting bhavcopyReady to False for dashboard notification.")
