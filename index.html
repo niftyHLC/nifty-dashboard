@@ -151,6 +151,7 @@
             background: rgba(34, 197, 94, 0.05);
         }
         .card.card-buyers .strike-header span,
+        .card.card-buyers .hcl-label,
         .card.card-buyers .hcl-val,
         .card.card-buyers .diff-footer span {
             color: #22c55e !important;
@@ -161,6 +162,7 @@
             background: rgba(239, 68, 68, 0.05);
         }
         .card.card-sellers .strike-header span,
+        .card.card-sellers .hcl-label,
         .card.card-sellers .hcl-val,
         .card.card-sellers .diff-footer span {
             color: #ef4444 !important;
@@ -171,6 +173,7 @@
             background: rgba(234, 179, 8, 0.05);
         }
         .card.card-neutral .strike-header span,
+        .card.card-neutral .hcl-label,
         .card.card-neutral .hcl-val,
         .card.card-neutral .diff-footer span {
             color: #eab308 !important;
@@ -218,13 +221,14 @@
             text-align: right;
         }
 
-        .hcl-val {
-            color: #ffffff;
+        .hcl-label {
+            color: inherit;
             font-weight: 700;
         }
 
-        .hcl-close {
-            color: inherit;
+        .hcl-val {
+            color: #ffffff;
+            font-weight: 700;
         }
 
         .diff-footer {
@@ -395,9 +399,9 @@
                 <span style="font-size: 0.85rem; font-weight: 700;">CE</span>
             </div>
             <div class="hcl-box">
-                <div>H <span class="hcl-val" id="ceHigh">0.00</span></div>
-                <div>C <span class="hcl-val hcl-close" id="ceClose">0.00</span></div>
-                <div>L <span class="hcl-val" id="ceLow">0.00</span></div>
+                <div><span class="hcl-label">H</span> <span class="hcl-val" id="ceHigh">0.00</span></div>
+                <div><span class="hcl-label">C</span> <span class="hcl-val" id="ceClose">0.00</span></div>
+                <div><span class="hcl-label">L</span> <span class="hcl-val" id="ceLow">0.00</span></div>
             </div>
             <div class="diff-footer">
                 <span>H-C <span id="ceHC">0.00</span></span>
@@ -413,9 +417,9 @@
                 <span style="font-size: 0.85rem; font-weight: 700;">PE</span>
             </div>
             <div class="hcl-box">
-                <div>H <span class="hcl-val" id="peHigh">0.00</span></div>
-                <div>C <span class="hcl-val hcl-close" id="peClose">0.00</span></div>
-                <div>L <span class="hcl-val" id="peLow">0.00</span></div>
+                <div><span class="hcl-label">H</span> <span class="hcl-val" id="peHigh">0.00</span></div>
+                <div><span class="hcl-label">C</span> <span class="hcl-val" id="peClose">0.00</span></div>
+                <div><span class="hcl-label">L</span> <span class="hcl-val" id="peLow">0.00</span></div>
             </div>
             <div class="diff-footer">
                 <span>H-C <span id="peHC">0.00</span></span>
