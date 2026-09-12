@@ -145,7 +145,7 @@
             transition: all 0.3s ease;
         }
 
-        /* --- Full Card State Themes (Buyers: Green, Sellers: Red, Neutral: Orange) --- */
+        /* --- Full Card State Themes --- */
         .card.card-buyers {
             border-color: #22c55e;
             background: rgba(34, 197, 94, 0.05);
@@ -212,6 +212,20 @@
             font-weight: 700;
             font-size: 1rem;
             margin-bottom: 8px;
+        }
+
+        .card-content-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .candle-graphic {
+            width: 32px;
+            height: 65px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .hcl-box {
@@ -398,10 +412,13 @@
                 <span id="ceStrike">-----</span>
                 <span style="font-size: 0.85rem; font-weight: 700;">CE</span>
             </div>
-            <div class="hcl-box">
-                <div><span class="hcl-label">H</span> <span class="hcl-val" id="ceHigh">0.00</span></div>
-                <div><span class="hcl-label">C</span> <span class="hcl-val" id="ceClose">0.00</span></div>
-                <div><span class="hcl-label">L</span> <span class="hcl-val" id="ceLow">0.00</span></div>
+            <div class="card-content-row">
+                <div class="candle-graphic" id="ceCandleGraphic"></div>
+                <div class="hcl-box">
+                    <div><span class="hcl-label">H</span> <span class="hcl-val" id="ceHigh">0.00</span></div>
+                    <div><span class="hcl-label">C</span> <span class="hcl-val" id="ceClose">0.00</span></div>
+                    <div><span class="hcl-label">L</span> <span class="hcl-val" id="ceLow">0.00</span></div>
+                </div>
             </div>
             <div class="diff-footer">
                 <span>H-C <span id="ceHC">0.00</span></span>
@@ -416,10 +433,13 @@
                 <span id="peStrike">-----</span>
                 <span style="font-size: 0.85rem; font-weight: 700;">PE</span>
             </div>
-            <div class="hcl-box">
-                <div><span class="hcl-label">H</span> <span class="hcl-val" id="peHigh">0.00</span></div>
-                <div><span class="hcl-label">C</span> <span class="hcl-val" id="peClose">0.00</span></div>
-                <div><span class="hcl-label">L</span> <span class="hcl-val" id="peLow">0.00</span></div>
+            <div class="card-content-row">
+                <div class="candle-graphic" id="peCandleGraphic"></div>
+                <div class="hcl-box">
+                    <div><span class="hcl-label">H</span> <span class="hcl-val" id="peHigh">0.00</span></div>
+                    <div><span class="hcl-label">C</span> <span class="hcl-val" id="peClose">0.00</span></div>
+                    <div><span class="hcl-label">L</span> <span class="hcl-val" id="peLow">0.00</span></div>
+                </div>
             </div>
             <div class="diff-footer">
                 <span>H-C <span id="peHC">0.00</span></span>
@@ -552,6 +572,35 @@
         return dateString;
     }
 
+    // Helper function to return SVG Candlestick Markup based on type
+    function getCandleSvg(type) {
+        if (type === 'tag-buyers') {
+            // Buyer Candle: Green with long lower wick
+            return `
+            <svg width="30" height="60" viewBox="0 0 30 60">
+                <line x1="15" y1="4" x2="15" y2="18" stroke="#22c55e" stroke-width="2"/>
+                <line x1="15" y1="42" x2="15" y2="56" stroke="#22c55e" stroke-width="2"/>
+                <rect x="10" y="18" width="10" height="24" fill="#22c55e" rx="2"/>
+            </svg>`;
+        } else if (type === 'tag-sellers') {
+            // Seller Candle: Red with long upper wick
+            return `
+            <svg width="30" height="60" viewBox="0 0 30 60">
+                <line x1="15" y1="4" x2="15" y2="22" stroke="#ef4444" stroke-width="2"/>
+                <line x1="15" y1="46" x2="15" y2="56" stroke="#ef4444" stroke-width="2"/>
+                <rect x="10" y="22" width="10" height="24" fill="#ef4444" rx="2"/>
+            </svg>`;
+        } else {
+            // Neutral Candle: Orange balanced body
+            return `
+            <svg width="30" height="60" viewBox="0 0 30 60">
+                <line x1="15" y1="8" x2="15" y2="22" stroke="#eab308" stroke-width="2"/>
+                <line x1="15" y1="38" x2="15" y2="52" stroke="#eab308" stroke-width="2"/>
+                <rect x="10" y="22" width="10" height="16" fill="#eab308" rx="2"/>
+            </svg>`;
+        }
+    }
+
     const uploadBtn = document.getElementById('uploadBtn');
     const fileInput = document.getElementById('manualFileInput');
 
@@ -634,7 +683,7 @@
         document.getElementById('ceCloseHeader').innerText = ceClose.toFixed(2);
         document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
 
-        // CE Card & Tag updates with full color synchronization
+        // CE Card & Tag updates with dynamic candlestick graphic
         const ceTagEl = document.getElementById('ceTag');
         const ceCardEl = document.getElementById('ceCard');
         ceTagEl.innerText = data.ceTag || 'NEUTRAL';
@@ -645,6 +694,8 @@
         else if (data.ceClass === 'tag-sellers') ceCardEl.classList.add('card-sellers');
         else ceCardEl.classList.add('card-neutral');
 
+        document.getElementById('ceCandleGraphic').innerHTML = getCandleSvg(data.ceClass);
+
         document.getElementById('ceStrike').innerText = data.hlcAtmStrike || '-----';
         document.getElementById('ceHigh').innerText = ceHigh.toFixed(2);
         document.getElementById('ceClose').innerText = ceClose.toFixed(2);
@@ -652,7 +703,7 @@
         document.getElementById('ceHC').innerText = (ceHigh - ceClose).toFixed(2);
         document.getElementById('ceCL').innerText = (ceClose - ceLow).toFixed(2);
 
-        // PE Card & Tag updates with full color synchronization
+        // PE Card & Tag updates with dynamic candlestick graphic
         const peTagEl = document.getElementById('peTag');
         const peCardEl = document.getElementById('peCard');
         peTagEl.innerText = data.peTag || 'NEUTRAL';
@@ -662,6 +713,8 @@
         if (data.peClass === 'tag-buyers') peCardEl.classList.add('card-buyers');
         else if (data.peClass === 'tag-sellers') peCardEl.classList.add('card-sellers');
         else peCardEl.classList.add('card-neutral');
+
+        document.getElementById('peCandleGraphic').innerHTML = getCandleSvg(data.peClass);
 
         document.getElementById('peStrike').innerText = data.hlcAtmStrike || '-----';
         document.getElementById('peHigh').innerText = peHigh.toFixed(2);
