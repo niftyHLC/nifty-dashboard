@@ -90,9 +90,15 @@ def download_today_bhavcopy():
             print(f"Successfully downloaded TODAY'S Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
             return True
         else:
-            print(f"⚠️ Data Not Ready Yet, Please Wait (Status Code: {response.status_code}).")
+            print("---------------------------------------------------")
+            print(f"NOTICE: Today's Bhavcopy is NOT READY yet from NSE (Status Code: {response.status_code}).")
+            print("Continuing script execution using available local/fallback data.")
+            print("---------------------------------------------------")
     except Exception as e:
-        print(f"⚠️ Error while trying to download Bhavcopy: {e}")
+        print("---------------------------------------------------")
+        print(f"NOTICE: Today's Bhavcopy is NOT READY yet from NSE: {e}")
+        print("Continuing script execution using available local/fallback data.")
+        print("---------------------------------------------------")
         
     return False
 
