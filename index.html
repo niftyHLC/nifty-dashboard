@@ -572,10 +572,8 @@
         return dateString;
     }
 
-    // Helper function to return SVG Candlestick Markup based on type
     function getCandleSvg(type) {
         if (type === 'tag-buyers') {
-            // Buyer Candle: Green with long lower wick
             return `
             <svg width="30" height="60" viewBox="0 0 30 60">
                 <line x1="15" y1="4" x2="15" y2="18" stroke="#22c55e" stroke-width="2"/>
@@ -583,7 +581,6 @@
                 <rect x="10" y="18" width="10" height="24" fill="#22c55e" rx="2"/>
             </svg>`;
         } else if (type === 'tag-sellers') {
-            // Seller Candle: Red with long upper wick
             return `
             <svg width="30" height="60" viewBox="0 0 30 60">
                 <line x1="15" y1="4" x2="15" y2="22" stroke="#ef4444" stroke-width="2"/>
@@ -591,7 +588,6 @@
                 <rect x="10" y="22" width="10" height="24" fill="#ef4444" rx="2"/>
             </svg>`;
         } else {
-            // Neutral Candle: Orange balanced body
             return `
             <svg width="30" height="60" viewBox="0 0 30 60">
                 <line x1="15" y1="8" x2="15" y2="22" stroke="#eab308" stroke-width="2"/>
@@ -683,7 +679,6 @@
         document.getElementById('ceCloseHeader').innerText = ceClose.toFixed(2);
         document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
 
-        // CE Card & Tag updates with dynamic candlestick graphic
         const ceTagEl = document.getElementById('ceTag');
         const ceCardEl = document.getElementById('ceCard');
         ceTagEl.innerText = data.ceTag || 'NEUTRAL';
@@ -703,7 +698,6 @@
         document.getElementById('ceHC').innerText = (ceHigh - ceClose).toFixed(2);
         document.getElementById('ceCL').innerText = (ceClose - ceLow).toFixed(2);
 
-        // PE Card & Tag updates with dynamic candlestick graphic
         const peTagEl = document.getElementById('peTag');
         const peCardEl = document.getElementById('peCard');
         peTagEl.innerText = data.peTag || 'NEUTRAL';
@@ -728,10 +722,16 @@
         document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
-        document.getElementById('wHigh').innerText = (Number(data.weeklyZones?.line1) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('wLow').innerText = (Number(data.weeklyZones?.line2) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('mHigh').innerText = (Number(data.monthlyZones?.line1) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('mLow').innerText = (Number(data.monthlyZones?.line2) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        // Handles line1/line2 or high/low fallbacks smoothly
+        const wHighVal = Number(data.weeklyZones?.line1 ?? data.weeklyZones?.high) || 0;
+        const wLowVal = Number(data.weeklyZones?.line2 ?? data.weeklyZones?.low) || 0;
+        const mHighVal = Number(data.monthlyZones?.line1 ?? data.monthlyZones?.high) || 0;
+        const mLowVal = Number(data.monthlyZones?.line2 ?? data.monthlyZones?.low) || 0;
+
+        document.getElementById('wHigh').innerText = wHighVal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('wLow').innerText = wLowVal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('mHigh').innerText = mHighVal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('mLow').innerText = mLowVal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         if (data.sniper1) {
             const s1Ce = Number(data.sniper1.ce) || 0;
