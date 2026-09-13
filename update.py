@@ -245,16 +245,26 @@ def calculate_dominance_metrics(data_dict):
 
 
 def calculate_zone_row_one(wl, wh, bhav_map):
-    """Calculates Line 1 (Resistance 1) and Line 2 (Support 1 / Pivot) only."""
+    """Calculates Line 1 and Line 2 according to the mathematical formulas in the image:
+       - Sum1 = CE1 + PE1 (at Lower Strike WL)
+       - Sum2 = CE2 + PE2 (at Upper Strike WH)
+       - Line 1 = WL + Sum1
+       - Line 2 = WH - Sum2
+    """
     def get_p(s, t):
         return bhav_map.get((s, t), {}).get("close", 0.0)
 
-    ce1, pe1 = get_p(wl, "CE"), get_p(wl, "PE")
-    ce2, pe2 = get_p(wh, "CE"), get_p(wh, "PE")
+    ce1 = get_p(wl, "CE")
+    pe1 = get_p(wl, "PE")
+    sum1 = ce1 + pe1
+
+    ce2 = get_p(wh, "CE")
+    pe2 = get_p(wh, "PE")
+    sum2 = ce2 + pe2
 
     return {
-        "line1": round(wh + ce2, 2),  # Resistance 2 formula in user image or updated line1 formula
-        "line2": round(wl - pe1, 2)   # Support 1 formula in user image
+        "line1": round(wl + sum1, 2),  # Line 1: WL + (CE1 + PE1)
+        "line2": round(wh - sum2, 2)   # Line 2: WH - (CE2 + PE2)
     }
 
 
