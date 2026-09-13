@@ -526,7 +526,11 @@
 
 <script>
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(err => console.error('SW Registration Failed:', err));
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            for(let registration of registrations) {
+                registration.unregister();
+            }
+        });
     }
 
     let manualDataPayload = null;
