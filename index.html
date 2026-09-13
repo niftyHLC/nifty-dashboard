@@ -141,6 +141,48 @@
             gap: 10px;
         }
 
+        /* New layout styling for top IV & Time Value grid cards */
+        .iv-time-card {
+            background: transparent;
+            border: 2px solid #334155;
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .iv-time-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-align: center;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .iv-split-row {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 6px;
+            border-top: 1px dashed #475569;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+
+        .iv-split-row span {
+            color: #f8fafc;
+        }
+
+        .time-val-display {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #f8fafc;
+            text-align: center;
+            margin: auto 0;
+        }
+
         .card {
             background: transparent;
             border: 2px solid #334155;
@@ -236,9 +278,9 @@
         }
 
         .hcl-box {
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             color: #94a3b8;
-            line-height: 1.3;
+            line-height: 1.4;
             text-align: right;
         }
 
@@ -437,8 +479,26 @@
         </div>
     </div>
 
+    <!-- NEW SETUP: Added directly above the buyer/seller cards -->
     <div class="grid-2">
-        <!-- Call Option Card with IV Added -->
+        <!-- Left Box: "HLC ATM" IV with CE & PE splits -->
+        <div class="iv-time-card">
+            <div class="iv-time-title">"HLC ATM" IV</div>
+            <div class="iv-split-row">
+                <div>CE IV - <span id="ceIvVal">0.00</span></div>
+                <div>PE IV - <span id="peIvVal">0.00</span></div>
+            </div>
+        </div>
+
+        <!-- Right Box: TIME VALUE -->
+        <div class="iv-time-card">
+            <div class="iv-time-title">TIME VALUE</div>
+            <div class="time-val-display" id="timeVal">0.00</div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Call Option Card -->
         <div class="card" id="ceCard">
             <div class="card-tag-container">
                 <div id="ceTag" class="card-tag tag-neutral">NEUTRAL</div>
@@ -453,7 +513,6 @@
                     <div><span class="hcl-label">H -</span> <span class="hcl-val" id="ceHigh">0.00</span></div>
                     <div><span class="hcl-label">C -</span> <span class="hcl-val" id="ceClose">0.00</span></div>
                     <div><span class="hcl-label">L -</span> <span class="hcl-val" id="ceLow">0.00</span></div>
-                    <div><span class="hcl-label">IV -</span> <span class="hcl-val" id="ceIv">0.00%</span></div>
                 </div>
             </div>
             <div class="diff-footer">
@@ -462,7 +521,7 @@
             </div>
         </div>
 
-        <!-- Put Option Card with IV Added -->
+        <!-- Put Option Card -->
         <div class="card" id="peCard">
             <div class="card-tag-container">
                 <div id="peTag" class="card-tag tag-neutral">NEUTRAL</div>
@@ -477,7 +536,6 @@
                     <div><span class="hcl-label">H -</span> <span class="hcl-val" id="peHigh">0.00</span></div>
                     <div><span class="hcl-label">C -</span> <span class="hcl-val" id="peClose">0.00</span></div>
                     <div><span class="hcl-label">L -</span> <span class="hcl-val" id="peLow">0.00</span></div>
-                    <div><span class="hcl-label">IV -</span> <span class="hcl-val" id="peIv">0.00%</span></div>
                 </div>
             </div>
             <div class="diff-footer">
@@ -668,25 +726,30 @@
         const ceClose = Number(data.ce?.close) || 0;
         const ceHigh = Number(data.ce?.high) || 0;
         const ceLow = Number(data.ce?.low) || 0;
-        const ceIv = Number(data.ce?.iv) || 0; // Added CE IV variable
+        const ceIv = Number(data.ce?.iv) || 0;
 
         const peClose = Number(data.pe?.close) || 0;
         const peHigh = Number(data.pe?.high) || 0;
         const peLow = Number(data.pe?.low) || 0;
-        const peIv = Number(data.pe?.iv) || 0; // Added PE IV variable
+        const peIv = Number(data.pe?.iv) || 0;
+
+        const timeValue = Number(data.timeValue) || 0;
 
         const cePeDiff = Math.abs(ceClose - peClose);
 
         document.getElementById('spotPrice').innerText = spotPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        
         document.getElementById('currentDate').innerText = formatDateToDDMMYYYY(data.currentDate);
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
-        
         document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
 
         document.getElementById('bannerTotal').innerText = cePeDiff.toFixed(2);
         document.getElementById('ceCloseHeader').innerText = ceClose.toFixed(2);
         document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
+
+        // Update top setup elements
+        document.getElementById('ceIvVal').innerText = ceIv.toFixed(2);
+        document.getElementById('peIvVal').innerText = peIv.toFixed(2);
+        document.getElementById('timeVal').innerText = timeValue.toFixed(2);
 
         const ceTagEl = document.getElementById('ceTag');
         const ceCardEl = document.getElementById('ceCard');
@@ -704,7 +767,6 @@
         document.getElementById('ceHigh').innerText = ceHigh.toFixed(2);
         document.getElementById('ceClose').innerText = ceClose.toFixed(2);
         document.getElementById('ceLow').innerText = ceLow.toFixed(2);
-        document.getElementById('ceIv').innerText = ceIv.toFixed(2) + '%'; // Updated CE IV text element
         document.getElementById('ceHC').innerText = (ceHigh - ceClose).toFixed(2);
         document.getElementById('ceCL').innerText = (ceClose - ceLow).toFixed(2);
 
@@ -724,7 +786,6 @@
         document.getElementById('peHigh').innerText = peHigh.toFixed(2);
         document.getElementById('peClose').innerText = peClose.toFixed(2);
         document.getElementById('peLow').innerText = peLow.toFixed(2);
-        document.getElementById('peIv').innerText = peIv.toFixed(2) + '%'; // Updated PE IV text element
         document.getElementById('peHC').innerText = (peHigh - peClose).toFixed(2);
         document.getElementById('peCL').innerText = (peClose - peLow).toFixed(2);
 
