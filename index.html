@@ -171,7 +171,7 @@
         }
 
         .iv-split-row span {
-            color: #ffffff;
+            color: inherit;
         }
 
         .time-val-display {
@@ -479,12 +479,12 @@
     </div>
 
     <div class="grid-2">
-        <!-- Left Box: ATM Strike & IMPLIED VOLATILITY -->
+        <!-- Left Box: IMPLIED VOLATILITY (ATM Removed) -->
         <div class="iv-time-card">
-            <div class="iv-time-title"><span id="ivAtmStrike">-----</span> IMPLIED VOLATILITY</div>
+            <div class="iv-time-title">IMPLIED VOLATILITY</div>
             <div class="iv-split-row">
-                <div>CE - <span id="ceIvVal">0.00</span></div>
-                <div>PE - <span id="peIvVal">0.00</span></div>
+                <div id="ceIvContainer">CE - <span id="ceIvVal">0.00</span></div>
+                <div id="peIvContainer">PE - <span id="peIvVal">0.00</span></div>
             </div>
         </div>
 
@@ -739,21 +739,22 @@
         document.getElementById('currentDate').innerText = formatDateToDDMMYYYY(data.currentDate);
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
         document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
-        
-        // Update IV ATM Strike display dynamically
-        document.getElementById('ivAtmStrike').innerText = data.hlcAtmStrike || '-----';
 
         document.getElementById('bannerTotal').innerText = cePeDiff.toFixed(2);
         document.getElementById('ceCloseHeader').innerText = ceClose.toFixed(2);
         document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
 
-        const ceIvEl = document.getElementById('ceIvVal');
-        ceIvEl.innerText = ceIv.toFixed(2);
-        ceIvEl.style.color = ceIv >= 10 ? '#22c55e' : '#ef4444';
+        document.getElementById('ceIvVal').innerText = ceIv.toFixed(2);
+        const ceIvContainer = document.getElementById('ceIvContainer');
+        const ceIvColor = ceIv >= 10 ? '#22c55e' : '#ef4444';
+        ceIvContainer.style.color = ceIvColor;
+        document.getElementById('ceIvVal').style.color = ceIvColor;
 
-        const peIvEl = document.getElementById('peIvVal');
-        peIvEl.innerText = peIv.toFixed(2);
-        peIvEl.style.color = peIv >= 10 ? '#22c55e' : '#ef4444';
+        document.getElementById('peIvVal').innerText = peIv.toFixed(2);
+        const peIvContainer = document.getElementById('peIvContainer');
+        const peIvColor = peIv >= 10 ? '#22c55e' : '#ef4444';
+        peIvContainer.style.color = peIvColor;
+        document.getElementById('peIvVal').style.color = peIvColor;
 
         document.getElementById('timeVal').innerText = timeValue.toFixed(2);
 
