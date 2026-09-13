@@ -35,12 +35,12 @@
     "maxSupply": 23649.75,
     "maxDemand": 23250.25,
     "weeklyZones": {
-        "line1": 23527.8,
-        "line2": 23248.9
+        "line1": 23549.5,
+        "line2": 23191.5
     },
     "monthlyZones": {
-        "line1": 23400.0,
-        "line2": 23300.0
+        "line1": 23300.0,
+        "line2": 23400.0
     },
     "spotHigh": 23398.099609375,
     "spotLow": 23398.099609375,
