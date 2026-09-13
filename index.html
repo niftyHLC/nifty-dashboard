@@ -481,7 +481,7 @@
     </div>
 
     <div class="grid-2">
-        <!-- Left Box: IMPLIED VOLATILITY (ATM Removed) -->
+        <!-- Left Box: IMPLIED VOLATILITY (Calculated Automatically from HLC ATM) -->
         <div class="iv-time-card">
             <div class="iv-time-title">IMPLIED VOLATILITY</div>
             <div class="iv-split-row">
@@ -673,6 +673,30 @@
         return dateString;
     }
 
+    // Function to compute estimated Implied Volatility (IV) using Brenner-Subrahmanyam approximation for ATM options
+    function calculateAtmIv(spot, strike, optionPrice, currentDateStr, expiryDateStr) {
+        if (!spot || !strike || !optionPrice || optionPrice <= 0) return 0;
+        
+        let curr = new Date(currentDateStr);
+        let exp = new Date(expiryDateStr);
+        if (isNaN(curr.getTime())) curr = new Date();
+        if (isNaN(exp.getTime())) exp = new Date(curr.getTime() + 7 * 24 * 60 * 60 * 1000);
+        
+        let diffTime = exp.getTime() - curr.getTime();
+        let diffDays = diffTime / (1000 * 3600 * 24);
+        if (diffDays <= 0) diffDays = 1; // Minimum 1 day fallback
+        let T = diffDays / 365.0;
+
+        // Brenner-Subrahmanyam approximation formula for ATM Option IV: IV = (OptionPrice / Spot) * sqrt(2 * pi / T) * 100
+        let iv = (optionPrice / spot) * Math.sqrt(2 * Math.PI / T) * 100;
+        
+        // Boundaries for safety
+        if (iv < 1.0) iv = 1.0;
+        if (iv > 250.0) iv = 250.0;
+        
+        return iv;
+    }
+
     function getCandleSvg(type) {
         if (type === 'tag-buyers') {
             return `
@@ -723,19 +747,28 @@
         }
 
         const spotPrice = Number(data.spotPrice) || 0;
+        const hlcAtmStrike = Number(data.hlcAtmStrike) || spotPrice;
         const ceClose = Number(data.ce?.close) || 0;
         const ceHigh = Number(data.ce?.high) || 0;
         const ceLow = Number(data.ce?.low) || 0;
-        const ceIv = Number(data.ce?.iv) || 0;
 
         const peClose = Number(data.pe?.close) || 0;
         const peHigh = Number(data.pe?.high) || 0;
         const peLow = Number(data.pe?.low) || 0;
-        const peIv = Number(data.pe?.iv) || 0;
 
         const timeValue = Number(data.timeValue) || 0;
-
         const cePeDiff = Math.abs(ceClose - peClose);
+
+        // Automatically calculate IV using HLC ATM strike and option close prices
+        let ceIv = Number(data.ce?.iv);
+        if (isNaN(ceIv) || ceIv <= 0) {
+            ceIv = calculateAtmIv(spotPrice, hlcAtmStrike, ceClose, data.currentDate, data.expiryDate);
+        }
+
+        let peIv = Number(data.pe?.iv);
+        if (isNaN(peIv) || peIv <= 0) {
+            peIv = calculateAtmIv(spotPrice, hlcAtmStrike, peClose, data.currentDate, data.expiryDate);
+        }
 
         document.getElementById('spotPrice').innerText = spotPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('currentDate').innerText = formatDateToDDMMYYYY(data.currentDate);
