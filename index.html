@@ -154,7 +154,7 @@
         .iv-time-title {
             font-size: 0.7rem;
             font-weight: 700;
-            color: #94a3b8;
+            color: #ffffff;
             text-align: center;
             margin-bottom: 6px;
             letter-spacing: 0.5px;
@@ -167,17 +167,17 @@
             border-top: 1px dashed #475569;
             font-size: 0.7rem;
             font-weight: 700;
-            color: #94a3b8;
+            color: #ffffff;
         }
 
         .iv-split-row span {
-            color: #f8fafc;
+            color: #ffffff;
         }
 
         .time-val-display {
             font-size: 1.1rem;
             font-weight: 700;
-            color: #f8fafc;
+            color: #ffffff;
             text-align: center;
             margin: auto 0;
         }
@@ -479,9 +479,9 @@
     </div>
 
     <div class="grid-2">
-        <!-- Left Box: HLC ATM IV with strike value and CE & PE splits -->
+        <!-- Left Box: ATM Strike & IV -->
         <div class="iv-time-card">
-            <div class="iv-time-title">HLC ATM <span id="ivAtmStrike">-----</span> IV</div>
+            <div class="iv-time-title"><span id="ivAtmStrike">-----</span> IV</div>
             <div class="iv-split-row">
                 <div>CE IV - <span id="ceIvVal">0.00</span></div>
                 <div>PE IV - <span id="peIvVal">0.00</span></div>
@@ -740,7 +740,7 @@
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
         document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
         
-        // Update IV ATM Strike display dynamically
+        // Update IV ATM Strike display dynamically without "HLC ATM"
         document.getElementById('ivAtmStrike').innerText = data.hlcAtmStrike || '-----';
 
         document.getElementById('bannerTotal').innerText = cePeDiff.toFixed(2);
