@@ -479,12 +479,12 @@
     </div>
 
     <div class="grid-2">
-        <!-- Left Box: ATM Strike & Implied Volatility -->
+        <!-- Left Box: ATM Strike & IMPLIED VOLATILITY -->
         <div class="iv-time-card">
-            <div class="iv-time-title"><span id="ivAtmStrike">-----</span> Implied Volatility</div>
+            <div class="iv-time-title"><span id="ivAtmStrike">-----</span> IMPLIED VOLATILITY</div>
             <div class="iv-split-row">
-                <div>CE IV - <span id="ceIvVal">0.00</span></div>
-                <div>PE IV - <span id="peIvVal">0.00</span></div>
+                <div>CE - <span id="ceIvVal">0.00</span></div>
+                <div>PE - <span id="peIvVal">0.00</span></div>
             </div>
         </div>
 
@@ -747,8 +747,14 @@
         document.getElementById('ceCloseHeader').innerText = ceClose.toFixed(2);
         document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
 
-        document.getElementById('ceIvVal').innerText = ceIv.toFixed(2);
-        document.getElementById('peIvVal').innerText = peIv.toFixed(2);
+        const ceIvEl = document.getElementById('ceIvVal');
+        ceIvEl.innerText = ceIv.toFixed(2);
+        ceIvEl.style.color = ceIv >= 10 ? '#22c55e' : '#ef4444';
+
+        const peIvEl = document.getElementById('peIvVal');
+        peIvEl.innerText = peIv.toFixed(2);
+        peIvEl.style.color = peIv >= 10 ? '#22c55e' : '#ef4444';
+
         document.getElementById('timeVal').innerText = timeValue.toFixed(2);
 
         const ceTagEl = document.getElementById('ceTag');
