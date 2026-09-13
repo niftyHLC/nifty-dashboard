@@ -67,16 +67,18 @@ def push_to_github():
 
 
 def fetch_live_spot_from_yahoo():
-    """Fetches real-time Nifty 50 spot price from Yahoo Finance."""
+    """Fetches real-time or end-of-day Nifty 50 High, Low, and Close prices from Yahoo Finance."""
     try:
         ticker = yf.Ticker("^NSEI")
         todays_data = ticker.history(period="1d")
         if not todays_data.empty:
-            spot = float(todays_data["Close"].iloc[-1])
-            return spot
+            spot_close = float(todays_data["Close"].iloc[-1])
+            spot_high = float(todays_data["High"].iloc[-1])
+            spot_low = float(todays_data["Low"].iloc[-1])
+            return spot_close, spot_high, spot_low
     except Exception as e:
         print(f"Failed to fetch spot from Yahoo Finance: {e}")
-    return 0.0
+    return 0.0, 0.0, 0.0
 
 
 def download_today_bhavcopy():
@@ -246,10 +248,10 @@ def calculate_dominance_metrics(data_dict):
 
 def calculate_zone_row_one(wl, wh, bhav_map):
     """Calculates Line 1 and Line 2 according to the mathematical formulas in the image:
-       - Sum1 = CE1 + PE1 (at Lower Strike WL)
-       - Sum2 = CE2 + PE2 (at Upper Strike WH)
-       - Line 1 = WL + Sum1
-       - Line 2 = WH - Sum2
+        - Sum1 = CE1 + PE1 (at Lower Strike WL)
+        - Sum2 = CE2 + PE2 (at Upper Strike WH)
+        - Line 1 = WL + Sum1
+        - Line 2 = WH - Sum2
     """
     def get_p(s, t):
         return bhav_map.get((s, t), {}).get("close", 0.0)
@@ -281,7 +283,7 @@ def get_display_date(now_ist):
     return target.strftime("%d %b %Y").upper()
 
 
-def process_and_save_data(spot, force_not_ready=False):
+def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     now_ist = datetime.datetime.now(IST)
     
     # On weekends or holidays, this dynamically points to the next active trading day
@@ -382,6 +384,10 @@ def process_and_save_data(spot, force_not_ready=False):
     weekly_zones = calculate_zone_row_one(wl, wh, w_bhav)
     monthly_zones = calculate_zone_row_one(wl, wh, m_bhav)
 
+    # Earth Level calculation: (Spot High - Spot Low) * 26.11%
+    spot_difference = round(spot_high - spot_low, 2)
+    earth_level = round(spot_difference * 0.2611, 2)
+
     payload = {
         "dataStatus": "SUCCESS",
         "bhavcopyReady": bhavcopy_is_ready,
@@ -402,8 +408,10 @@ def process_and_save_data(spot, force_not_ready=False):
         "maxDemand": max_demand_val,
         "weeklyZones": weekly_zones,
         "monthlyZones": monthly_zones,
-        "spotHigh": spot,
-        "spotLow": spot,
+        "spotHigh": spot_high,
+        "spotLow": spot_low,
+        "spotDifference": spot_difference,
+        "earthLevel": earth_level,  # <--- Added Earth Level to payload
         "sniper1": {
             "strike": sniper1_atm_strike, "ce": round(s1_atm_ce_val, 2), "pe": round(s1_atm_pe_val, 2),
             "otmCeStrike": target_s1_ce_strike, "otmPeStrike": target_s1_pe_strike,
@@ -419,7 +427,7 @@ def process_and_save_data(spot, force_not_ready=False):
     with open("data.json", "w") as f:
         json.dump(payload, f, indent=4)
         
-    print(f"Data saved successfully. Bhavcopy Ready: {bhavcopy_is_ready}")
+    print(f"Data saved successfully. Earth Level: {earth_level} (High: {spot_high}, Low: {spot_low}). Bhavcopy Ready: {bhavcopy_is_ready}")
     push_to_github()
 
 
@@ -434,10 +442,12 @@ if __name__ == "__main__":
     if is_weekend or is_holiday:
         reason = "WEEKEND" if is_weekend else "HOLIDAY"
         print(f"🛑 Today is a {reason}. Setting bhavcopyReady to False for dashboard notification.")
-        spot = fetch_live_spot_from_yahoo()
+        spot, spot_high, spot_low = fetch_live_spot_from_yahoo()
         if spot <= 0:
             spot = 23398.10  # fallback spot
-        process_and_save_data(spot, force_not_ready=True)
+            spot_high = 23450.0
+            spot_low = 23350.0
+        process_and_save_data(spot, spot_high, spot_low, force_not_ready=True)
         exit(0)
 
     if os.path.exists("data.json"):
@@ -452,9 +462,9 @@ if __name__ == "__main__":
         except Exception:
             pass
 
-    spot = fetch_live_spot_from_yahoo()
+    spot, spot_high, spot_low = fetch_live_spot_from_yahoo()
     if spot > 0:
-        print(f"Retrieved Spot Price from Yahoo Finance: {spot}")
-        process_and_save_data(spot, force_not_ready=False)
+        print(f"Retrieved Spot Price from Yahoo Finance -> Close: {spot}, High: {spot_high}, Low: {spot_low}")
+        process_and_save_data(spot, spot_high, spot_low, force_not_ready=False)
     else:
         print("Failed to retrieve spot price.")
