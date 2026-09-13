@@ -409,13 +409,6 @@
             justify-content: space-between;
             align-items: center;
         }
-
-        .refresh-info {
-            font-size: 0.6rem;
-            color: #94a3b8;
-            text-align: center;
-            margin-top: -4px;
-        }
     </style>
 </head>
 <body>
@@ -573,8 +566,6 @@
         <div style="font-weight: 700; font-size: 0.85rem; color: #f8fafc;">🌏 EARTH</div>
         <div class="sniper-val" style="color: #38bdf8;" id="earthVal">0.00</div>
     </div>
-
-    <div class="refresh-info" id="refreshTimer">Next auto-refresh in 30s</div>
 </div>
 
 <script>
@@ -585,8 +576,6 @@
             }
         });
     }
-
-    let countdown = 30;
 
     function formatDateToDDMMYYYY(dateString) {
         if (!dateString) return '-- -- ----';
@@ -658,7 +647,6 @@
             if (!response.ok) return;
             const data = await response.json();
             renderDashboard(data);
-            countdown = 30;
         } catch (e) {
             console.error("Error loading dashboard data:", e);
         }
@@ -786,19 +774,8 @@
         document.getElementById('earthVal').innerText = (Number(data.earthLevel) || 0).toFixed(2);
     }
 
+    // Loads the dashboard once on page load without polling
     updateDashboard();
-
-    setInterval(() => {
-        countdown--;
-        if (countdown <= 0) {
-            updateDashboard();
-            countdown = 30;
-        }
-        const timerEl = document.getElementById('refreshTimer');
-        if (timerEl) {
-            timerEl.innerText = `Next auto-refresh in ${countdown}s`;
-        }
-    }, 1000);
 </script>
 
 </body>
