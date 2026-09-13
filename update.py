@@ -183,10 +183,11 @@ def load_bhavcopy_dict(target_expiry_str):
                     low = float(cleaned_row.get("LWPRIC") or cleaned_row.get("LOW") or 0.0)
                     close = float(cleaned_row.get("CLSPRIC") or cleaned_row.get("CLOSE") or cleaned_row.get("SETTLE_PR") or 0.0)
                     chg_oi = float(cleaned_row.get("CHGINOI") or cleaned_row.get("CHG_IN_OI") or 0.0)
+                    iv = float(cleaned_row.get("IV") or cleaned_row.get("IMPLIED_VOL") or cleaned_row.get("IMPL_VOL") or cleaned_row.get("CLIENT_IV") or 0.0)
 
                     if high > 0 or low > 0 or close > 0:
                         bhav_map[(row_strike, opt_type)] = {
-                            "open": open_p, "high": high, "low": low, "close": close, "chg_oi": chg_oi
+                            "open": open_p, "high": high, "low": low, "close": close, "chg_oi": chg_oi, "iv": iv
                         }
     except Exception as e:
         print(f"Error reading bhavcopy into dict: {e}")
@@ -203,7 +204,7 @@ def calculate_dominance_metrics(data_dict):
     """
     if not data_dict:
         return {
-            "high": 0.0, "close": 0.0, "low": 0.0,
+            "high": 0.0, "close": 0.0, "low": 0.0, "iv": 0.0,
             "hc": 0.0, "cl": 0.0,
             "dominance": "NEUTRAL",
             "themeColor": "orange",
@@ -213,6 +214,7 @@ def calculate_dominance_metrics(data_dict):
     high = data_dict.get("high", 0.0)
     low = data_dict.get("low", 0.0)
     close = data_dict.get("close", 0.0)
+    iv = data_dict.get("iv", 0.0)
     
     hc = round(high - close, 2)
     cl = round(close - low, 2)
@@ -238,6 +240,7 @@ def calculate_dominance_metrics(data_dict):
         "high": round(high, 2),
         "close": round(close, 2),
         "low": round(low, 2),
+        "iv": round(iv, 2),
         "hc": hc,
         "cl": cl,
         "dominance": dominance,
@@ -354,8 +357,8 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     target_s2_ce_strike = sniper2_atm_strike + 100
     target_s2_pe_strike = sniper2_atm_strike - 100
 
-    ce_dict = w_bhav.get((int(hlc_atm_strike), "CE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0})
-    pe_dict = w_bhav.get((int(hlc_atm_strike), "PE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0})
+    ce_dict = w_bhav.get((int(hlc_atm_strike), "CE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
+    pe_dict = w_bhav.get((int(hlc_atm_strike), "PE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
 
     ce_metrics = calculate_dominance_metrics(ce_dict)
     pe_metrics = calculate_dominance_metrics(pe_dict)
