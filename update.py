@@ -23,20 +23,20 @@ def get_market_holidays():
     if current_year == 2026:
         holiday_set.update({
             datetime.date(2026, 1, 15),  # Municipal Corp Election
-            datetime.date(2026, 3, 3),    # Holi
-            datetime.date(2026, 3, 26),   # Shri Ram Navami
-            datetime.date(2026, 3, 31),   # Shri Mahavir Jayanti
-            datetime.date(2026, 4, 3),    # Good Friday
-            datetime.date(2026, 4, 14),   # Dr. Baba Saheb Ambedkar Jayanti
-            datetime.date(2026, 5, 1),    # Maharashtra Day
-            datetime.date(2026, 5, 28),   # Bakri Id
-            datetime.date(2026, 6, 26),   # Muharram
-            datetime.date(2026, 9, 14),   # Ganesh Chaturthi
-            datetime.date(2026, 10, 2),   # Mahatma Gandhi Jayanti
-            datetime.date(2026, 10, 20),  # Dussehra
-            datetime.date(2026, 11, 10),  # Diwali-Balipratipada
-            datetime.date(2026, 11, 24),  # Prakash Gurpurb
-            datetime.date(2026, 12, 25)   # Christmas
+            datetime.date(2026, 3, 3),   # Holi
+            datetime.date(2026, 3, 26),  # Shri Ram Navami
+            datetime.date(2026, 3, 31),  # Shri Mahavir Jayanti
+            datetime.date(2026, 4, 3),   # Good Friday
+            datetime.date(2026, 4, 14),  # Dr. Baba Saheb Ambedkar Jayanti
+            datetime.date(2026, 5, 1),   # Maharashtra Day
+            datetime.date(2026, 5, 28),  # Bakri Id
+            datetime.date(2026, 6, 26),  # Muharram
+            datetime.date(2026, 9, 14),  # Ganesh Chaturthi
+            datetime.date(2026, 10, 2),  # Mahatma Gandhi Jayanti
+            datetime.date(2026, 10, 20), # Dussehra
+            datetime.date(2026, 11, 10), # Diwali-Balipratipada
+            datetime.date(2026, 11, 24), # Prakash Gurpurb
+            datetime.date(2026, 12, 25)  # Christmas
         })
         
     return holiday_set
@@ -245,6 +245,7 @@ def calculate_dominance_metrics(data_dict):
 
 
 def calculate_zone_row_one(wl, wh, bhav_map):
+    """Calculates Line 1 (Resistance 1) and Line 2 (Support 1 / Pivot) only."""
     def get_p(s, t):
         return bhav_map.get((s, t), {}).get("close", 0.0)
 
@@ -252,8 +253,8 @@ def calculate_zone_row_one(wl, wh, bhav_map):
     ce2, pe2 = get_p(wh, "CE"), get_p(wh, "PE")
 
     return {
-        "line1": round(wh + ce2, 2),  
-        "line2": round(wl - pe1, 2)    
+        "line1": round(wh + ce2, 2),  # Resistance 2 formula in user image or updated line1 formula
+        "line2": round(wl - pe1, 2)   # Support 1 formula in user image
     }
 
 
