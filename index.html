@@ -276,6 +276,31 @@
             gap: 10px;
         }
 
+        /* Specific styles to make all text elements inside Supply/Demand cards Red/Green */
+        .sd-supply-card {
+            border-color: #ef4444;
+        }
+        .sd-supply-card .sd-header-box {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        .sd-supply-card .sd-label,
+        .sd-supply-card .sd-val-red {
+            color: #ef4444 !important;
+        }
+
+        .sd-demand-card {
+            border-color: #22c55e;
+        }
+        .sd-demand-card .sd-header-box {
+            border-color: #22c55e;
+            color: #22c55e;
+        }
+        .sd-demand-card .sd-label,
+        .sd-demand-card .sd-val-green {
+            color: #22c55e !important;
+        }
+
         .sd-header-box {
             background: transparent;
             border: 2px solid #334155;
@@ -506,7 +531,7 @@
     <!-- Supply & Demand Layout Matching Reference Image -->
     <div class="grid-2">
         <!-- Supply Card (Left) -->
-        <div class="sd-main-card">
+        <div class="sd-main-card sd-supply-card">
             <div class="sd-header-box">SUPPLY</div>
             <div class="sd-body">
                 <div class="sd-row">
@@ -521,7 +546,7 @@
         </div>
 
         <!-- Demand Card (Right) -->
-        <div class="sd-main-card">
+        <div class="sd-main-card sd-demand-card">
             <div class="sd-header-box">DEMAND</div>
             <div class="sd-body">
                 <div class="sd-row">
