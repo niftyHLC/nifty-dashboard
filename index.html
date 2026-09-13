@@ -15,7 +15,6 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Explicitly clear any text or box shadows across all elements */
         h1, h2, h3, h4, h5, h6, p, span, div, a, button {
             text-shadow: none !important;
             box-shadow: none !important;
@@ -237,9 +236,9 @@
         }
 
         .hcl-box {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #94a3b8;
-            line-height: 1.4;
+            line-height: 1.3;
             text-align: right;
         }
 
@@ -439,7 +438,7 @@
     </div>
 
     <div class="grid-2">
-        <!-- Call Option Card -->
+        <!-- Call Option Card with IV Added -->
         <div class="card" id="ceCard">
             <div class="card-tag-container">
                 <div id="ceTag" class="card-tag tag-neutral">NEUTRAL</div>
@@ -454,6 +453,7 @@
                     <div><span class="hcl-label">H -</span> <span class="hcl-val" id="ceHigh">0.00</span></div>
                     <div><span class="hcl-label">C -</span> <span class="hcl-val" id="ceClose">0.00</span></div>
                     <div><span class="hcl-label">L -</span> <span class="hcl-val" id="ceLow">0.00</span></div>
+                    <div><span class="hcl-label">IV -</span> <span class="hcl-val" id="ceIv">0.00%</span></div>
                 </div>
             </div>
             <div class="diff-footer">
@@ -462,7 +462,7 @@
             </div>
         </div>
 
-        <!-- Put Option Card -->
+        <!-- Put Option Card with IV Added -->
         <div class="card" id="peCard">
             <div class="card-tag-container">
                 <div id="peTag" class="card-tag tag-neutral">NEUTRAL</div>
@@ -477,6 +477,7 @@
                     <div><span class="hcl-label">H -</span> <span class="hcl-val" id="peHigh">0.00</span></div>
                     <div><span class="hcl-label">C -</span> <span class="hcl-val" id="peClose">0.00</span></div>
                     <div><span class="hcl-label">L -</span> <span class="hcl-val" id="peLow">0.00</span></div>
+                    <div><span class="hcl-label">IV -</span> <span class="hcl-val" id="peIv">0.00%</span></div>
                 </div>
             </div>
             <div class="diff-footer">
@@ -488,7 +489,6 @@
 
     <!-- Supply & Demand Layout -->
     <div class="grid-2">
-        <!-- Supply Card (Left) -->
         <div class="sd-main-card sd-supply-card">
             <div class="sd-header-box">SUPPLY</div>
             <div class="sd-body">
@@ -503,7 +503,6 @@
             </div>
         </div>
 
-        <!-- Demand Card (Right) -->
         <div class="sd-main-card sd-demand-card">
             <div class="sd-header-box">DEMAND</div>
             <div class="sd-body">
@@ -669,9 +668,12 @@
         const ceClose = Number(data.ce?.close) || 0;
         const ceHigh = Number(data.ce?.high) || 0;
         const ceLow = Number(data.ce?.low) || 0;
+        const ceIv = Number(data.ce?.iv) || 0; // Added CE IV variable
+
         const peClose = Number(data.pe?.close) || 0;
         const peHigh = Number(data.pe?.high) || 0;
         const peLow = Number(data.pe?.low) || 0;
+        const peIv = Number(data.pe?.iv) || 0; // Added PE IV variable
 
         const cePeDiff = Math.abs(ceClose - peClose);
 
@@ -702,6 +704,7 @@
         document.getElementById('ceHigh').innerText = ceHigh.toFixed(2);
         document.getElementById('ceClose').innerText = ceClose.toFixed(2);
         document.getElementById('ceLow').innerText = ceLow.toFixed(2);
+        document.getElementById('ceIv').innerText = ceIv.toFixed(2) + '%'; // Updated CE IV text element
         document.getElementById('ceHC').innerText = (ceHigh - ceClose).toFixed(2);
         document.getElementById('ceCL').innerText = (ceClose - ceLow).toFixed(2);
 
@@ -721,6 +724,7 @@
         document.getElementById('peHigh').innerText = peHigh.toFixed(2);
         document.getElementById('peClose').innerText = peClose.toFixed(2);
         document.getElementById('peLow').innerText = peLow.toFixed(2);
+        document.getElementById('peIv').innerText = peIv.toFixed(2) + '%'; // Updated PE IV text element
         document.getElementById('peHC').innerText = (peHigh - peClose).toFixed(2);
         document.getElementById('peCL').innerText = (peClose - peLow).toFixed(2);
 
@@ -774,7 +778,6 @@
         document.getElementById('earthVal').innerText = (Number(data.earthLevel) || 0).toFixed(2);
     }
 
-    // Loads the dashboard once on page load without polling
     updateDashboard();
 </script>
 
