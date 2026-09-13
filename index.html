@@ -522,7 +522,7 @@
         <div class="sniper-val" id="snip1Val">0.00</div>
     </div>
 
-    <div class="sniper-card">
+    <div class="sniper-card" id="sniper2Card">
         <div class="sniper-content-wrapper">
             <div class="sniper-tag" style="background: rgba(14, 165, 233, 0.15); color: #ffffff; border: none;">SNIPER ATM (HLC Match)</div>
             <div class="sniper-text-main">
@@ -772,7 +772,9 @@
             document.getElementById('snip1Val').innerText = (Number(data.sniper1.value) || 0).toFixed(2);
         }
 
+        const sniper2CardEl = document.getElementById('sniper2Card');
         if (data.sniper2) {
+            sniper2CardEl.style.display = 'flex';
             const s2Ce = Number(data.sniper2.ce) || 0;
             const s2Pe = Number(data.sniper2.pe) || 0;
             document.getElementById('snip2Atm').innerText = data.sniper2.strike || '-----';
@@ -784,6 +786,8 @@
             document.getElementById('snip2OtmPe').innerText = (Number(data.sniper2.otmPe) || 0).toFixed(2);
             
             document.getElementById('snip2Val').innerText = (Number(data.sniper2.value) || 0).toFixed(2);
+        } else {
+            sniper2CardEl.style.display = 'none';
         }
 
         document.getElementById('earthVal').innerText = (Number(data.earthLevel) || 0).toFixed(2);
