@@ -264,10 +264,11 @@
             font-weight: 700;
         }
 
-        /* Supply & Demand Cards matching the image layout */
+        /* Supply & Demand Cards matching the updated layout */
         .sd-main-card {
             background: transparent;
-            border: 3px solid #334155;
+            border-width: 3px;
+            border-style: solid;
             border-radius: 10px;
             padding: 10px;
             display: flex;
@@ -276,12 +277,12 @@
             gap: 10px;
         }
 
-        /* Specific styles to make all text elements inside Supply/Demand cards Red/Green */
+        /* Supply Card: Red Outer Border, Red Text, Borderless Header */
         .sd-supply-card {
             border-color: #ef4444;
         }
         .sd-supply-card .sd-header-box {
-            border-color: #ef4444;
+            border: none;
             color: #ef4444;
         }
         .sd-supply-card .sd-label,
@@ -289,11 +290,12 @@
             color: #ef4444 !important;
         }
 
+        /* Demand Card: Green Outer Border, Green Text, Borderless Header */
         .sd-demand-card {
             border-color: #22c55e;
         }
         .sd-demand-card .sd-header-box {
-            border-color: #22c55e;
+            border: none;
             color: #22c55e;
         }
         .sd-demand-card .sd-label,
@@ -303,8 +305,6 @@
 
         .sd-header-box {
             background: transparent;
-            border: 2px solid #334155;
-            border-radius: 6px;
             padding: 3px 12px;
             font-size: 0.65rem;
             font-weight: 700;
