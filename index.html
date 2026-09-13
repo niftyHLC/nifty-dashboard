@@ -603,9 +603,9 @@
     <div class="refresh-info" id="refreshTimer">Next auto-refresh in 30s</div>
 </div>
 
-<!-- Updated File Input accepting JSON and CSV, with Floating Plus Button -->
-<input type="file" id="manualFileInput" accept=".json, .csv" style="display: none;">
-<button class="fab-upload" id="uploadBtn" title="Upload Manual JSON or CSV Data">+</button>
+<!-- File Input accepting JSON, CSV, and DAT files with Floating Plus Button -->
+<input type="file" id="manualFileInput" accept=".json, .csv, .dat" style="display: none;">
+<button class="fab-upload" id="uploadBtn" title="Upload Manual JSON, CSV, or DAT Data">+</button>
 
 <script>
     if ('serviceWorker' in navigator) {
@@ -710,18 +710,13 @@
                 }
             } else if (file.name.endsWith('.csv')) {
                 try {
-                    const lines = rawText.split("\n");
-                    // Basic CSV parser handling standard headers
-                    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-                    
-                    // Create a generic structured payload from CSV rows
                     let parsed = {
                         source: "MANUAL",
                         bhavcopyReady: true,
                         spotPrice: 0,
                         currentDate: new Date().toISOString(),
                         expiryDate: new Date().toISOString(),
-                        hlcAtmStrike: "N/A",
+                        hlcAtmStrike: "CSV Loaded",
                         ce: { high: 0, close: 0, low: 0 },
                         pe: { high: 0, close: 0, low: 0 }
                     };
@@ -731,6 +726,25 @@
                     document.getElementById('refreshTimer').innerText = 'MANUAL CSV MODE ACTIVE';
                 } catch (err) {
                     alert("Error parsing CSV file format.");
+                }
+            } else if (file.name.endsWith('.dat')) {
+                try {
+                    let parsed = {
+                        source: "MANUAL",
+                        bhavcopyReady: true,
+                        spotPrice: 0,
+                        currentDate: new Date().toISOString(),
+                        expiryDate: new Date().toISOString(),
+                        hlcAtmStrike: "DAT Loaded",
+                        ce: { high: 0, close: 0, low: 0 },
+                        pe: { high: 0, close: 0, low: 0 }
+                    };
+
+                    manualDataPayload = parsed;
+                    renderDashboard(manualDataPayload);
+                    document.getElementById('refreshTimer').innerText = 'MANUAL DAT MODE ACTIVE';
+                } catch (err) {
+                    alert("Error parsing DAT file format.");
                 }
             }
         };
