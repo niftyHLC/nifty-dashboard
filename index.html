@@ -22,7 +22,7 @@
 
         body {
             background-color: #030712;
-            color: #f3f4f6;
+            color: #ffffff;
             display: flex;
             justify-content: center;
             padding: 20px 10px 60px 10px;
@@ -141,7 +141,6 @@
             gap: 10px;
         }
 
-        /* New layout styling for top IV & Time Value grid cards */
         .iv-time-card {
             background: transparent;
             border: 2px solid #334155;
@@ -155,7 +154,7 @@
         .iv-time-title {
             font-size: 0.7rem;
             font-weight: 700;
-            color: #94a3b8;
+            color: #ffffff;
             text-align: center;
             margin-bottom: 6px;
             letter-spacing: 0.5px;
@@ -168,17 +167,17 @@
             border-top: 1px dashed #475569;
             font-size: 0.7rem;
             font-weight: 700;
-            color: #94a3b8;
+            color: #ffffff;
         }
 
         .iv-split-row span {
-            color: #f8fafc;
+            color: #ffffff;
         }
 
         .time-val-display {
             font-size: 1.1rem;
             font-weight: 700;
-            color: #f8fafc;
+            color: #ffffff;
             text-align: center;
             margin: auto 0;
         }
@@ -191,37 +190,17 @@
             transition: all 0.3s ease;
         }
 
-        .card.card-buyers {
-            border-color: #22c55e;
+        .card.card-buyers, .card.card-sellers, .card.card-neutral {
+            border-color: #334155;
             background: transparent;
         }
-        .card.card-buyers .strike-header span,
-        .card.card-buyers .hcl-label,
-        .card.card-buyers .hcl-val,
-        .card.card-buyers .diff-footer span {
-            color: #22c55e !important;
-        }
-
-        .card.card-sellers {
-            border-color: #ef4444;
-            background: transparent;
-        }
-        .card.card-sellers .strike-header span,
-        .card.card-sellers .hcl-label,
-        .card.card-sellers .hcl-val,
-        .card.card-sellers .diff-footer span {
-            color: #ef4444 !important;
-        }
-
-        .card.card-neutral {
-            border-color: #eab308;
-            background: transparent;
-        }
-        .card.card-neutral .strike-header span,
-        .card.card-neutral .hcl-label,
-        .card.card-neutral .hcl-val,
-        .card.card-neutral .diff-footer span {
-            color: #eab308 !important;
+        
+        .card .strike-header span,
+        .card .hcl-label,
+        .card .hcl-val,
+        .card .diff-footer span,
+        .card .diff-footer span span {
+            color: #ffffff !important;
         }
 
         .card-tag-container {
@@ -237,22 +216,10 @@
             display: inline-block;
         }
 
-        .tag-neutral {
-            background: rgba(234, 179, 8, 0.15);
-            color: #eab308;
-            border: 1px solid #eab308;
-        }
-
-        .tag-buyers {
-            background: rgba(34, 197, 94, 0.15);
-            color: #22c55e;
-            border: 1px solid #22c55e;
-        }
-
-        .tag-sellers {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-            border: 1px solid #ef4444;
+        .tag-neutral, .tag-buyers, .tag-sellers {
+            background: transparent;
+            color: #ffffff;
+            border: 1px solid #ffffff;
         }
 
         .strike-header {
@@ -279,18 +246,18 @@
 
         .hcl-box {
             font-size: 0.8rem;
-            color: #94a3b8;
+            color: #ffffff;
             line-height: 1.4;
             text-align: right;
         }
 
         .hcl-label {
-            color: inherit;
+            color: #ffffff;
             font-weight: 700;
         }
 
         .hcl-val {
-            color: #f8fafc;
+            color: #ffffff;
             font-weight: 700;
         }
 
@@ -301,7 +268,7 @@
             display: flex;
             justify-content: space-between;
             font-size: 0.65rem;
-            color: #94a3b8;
+            color: #ffffff;
             font-weight: 700;
         }
 
@@ -316,22 +283,17 @@
             gap: 10px;
         }
 
-        .sd-supply-card .sd-header-box {
-            border: none;
-            color: #ffffff !important;
-        }
-        .sd-supply-card .sd-label,
-        .sd-supply-card .sd-val-red {
-            color: #ef4444 !important;
-        }
-
+        .sd-supply-card .sd-header-box,
         .sd-demand-card .sd-header-box {
             border: none;
             color: #ffffff !important;
         }
+
+        .sd-supply-card .sd-label,
+        .sd-supply-card .sd-val-red,
         .sd-demand-card .sd-label,
         .sd-demand-card .sd-val-green {
-            color: #22c55e !important;
+            color: #ffffff !important;
         }
 
         .sd-header-box {
@@ -362,15 +324,11 @@
         }
 
         .sd-label {
-            color: #94a3b8;
+            color: #ffffff;
         }
 
-        .sd-val-red {
-            color: #ef4444;
-        }
-
-        .sd-val-green {
-            color: #22c55e;
+        .sd-val-red, .sd-val-green {
+            color: #ffffff;
         }
 
         .zone-title {
@@ -387,6 +345,10 @@
             justify-content: space-between;
             font-size: 0.75rem;
             font-weight: 700;
+        }
+
+        .zone-grid span {
+            color: #ffffff !important;
         }
 
         .sniper-card {
@@ -425,25 +387,25 @@
         .sniper-text-main {
             font-size: 0.8rem;
             font-weight: 700;
-            color: #38bdf8;
+            color: #ffffff;
         }
 
         .sniper-sub-text {
             font-size: 0.65rem;
-            color: #38bdf8;
+            color: #ffffff;
             margin-top: 2px;
         }
 
         .sniper-val {
             font-size: 1.4rem;
             font-weight: 700;
-            color: #38bdf8;
+            color: #ffffff;
             margin-top: 2px;
         }
 
         .earth-card {
             background: transparent;
-            border: 2px solid #38bdf8;
+            border: 2px solid #334155;
             border-radius: 10px;
             padding: 12px;
             display: flex;
@@ -479,18 +441,16 @@
         </div>
     </div>
 
-    <!-- NEW SETUP: Added directly above the buyer/seller cards -->
+    <!-- Updated Top Setup Grid with dynamic HLC ATM title value -->
     <div class="grid-2">
-        <!-- Left Box: "HLC ATM" IV with CE & PE splits -->
         <div class="iv-time-card">
-            <div class="iv-time-title">"HLC ATM" IV</div>
+            <div class="iv-time-title">" <span id="ivAtmTitleVal">-----</span> " IV</div>
             <div class="iv-split-row">
                 <div>CE IV - <span id="ceIvVal">0.00</span></div>
                 <div>PE IV - <span id="peIvVal">0.00</span></div>
             </div>
         </div>
 
-        <!-- Right Box: TIME VALUE -->
         <div class="iv-time-card">
             <div class="iv-time-title">TIME VALUE</div>
             <div class="time-val-display" id="timeVal">0.00</div>
@@ -501,7 +461,7 @@
         <!-- Call Option Card -->
         <div class="card" id="ceCard">
             <div class="card-tag-container">
-                <div id="ceTag" class="card-tag tag-neutral">NEUTRAL</div>
+                <div id="ceTag" class="card-tag">NEUTRAL</div>
             </div>
             <div class="strike-header">
                 <span id="ceStrike">-----</span>
@@ -524,7 +484,7 @@
         <!-- Put Option Card -->
         <div class="card" id="peCard">
             <div class="card-tag-container">
-                <div id="peTag" class="card-tag tag-neutral">NEUTRAL</div>
+                <div id="peTag" class="card-tag">NEUTRAL</div>
             </div>
             <div class="strike-header">
                 <span id="peStrike">-----</span>
@@ -580,15 +540,15 @@
         <div class="card" style="border-width: 3px;">
             <div class="zone-title">Weekly Zone</div>
             <div class="zone-grid">
-                <span style="color: #ef4444;" id="wHigh">0.00</span>
-                <span style="color: #22c55e;" id="wLow">0.00</span>
+                <span id="wHigh">0.00</span>
+                <span id="wLow">0.00</span>
             </div>
         </div>
         <div class="card" style="border-width: 3px;">
             <div class="zone-title">Monthly Zone</div>
             <div class="zone-grid">
-                <span style="color: #ef4444;" id="mHigh">0.00</span>
-                <span style="color: #22c55e;" id="mLow">0.00</span>
+                <span id="mHigh">0.00</span>
+                <span id="mLow">0.00</span>
             </div>
         </div>
     </div>
@@ -620,8 +580,8 @@
     </div>
 
     <div class="earth-card">
-        <div style="font-weight: 700; font-size: 0.85rem; color: #f8fafc;">🌏 EARTH</div>
-        <div class="sniper-val" style="color: #38bdf8;" id="earthVal">0.00</div>
+        <div style="font-weight: 700; font-size: 0.85rem; color: #ffffff;">🌏 EARTH</div>
+        <div class="sniper-val" id="earthVal">0.00</div>
     </div>
 </div>
 
@@ -636,7 +596,6 @@
 
     function formatDateToDDMMYYYY(dateString) {
         if (!dateString) return '-- -- ----';
-        
         const parsedDate = new Date(dateString);
         if (!isNaN(parsedDate.getTime())) {
             const day = String(parsedDate.getDate()).padStart(2, '0');
@@ -644,58 +603,16 @@
             const year = parsedDate.getFullYear();
             return `${day}-${month}-${year}`;
         }
-        
-        const months = {
-            'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
-            'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
-        };
-        
-        let cleanStr = dateString.toLowerCase().trim();
-        let parts = cleanStr.split(/[\s-/]+/);
-        if (parts.length === 3) {
-            let day = parts[0].padStart(2, '0');
-            let month = parts[1];
-            let year = parts[2];
-            
-            if (months[month]) {
-                month = months[month];
-            } else if (months[month.substring(0,3)]) {
-                month = months[month.substring(0,3)];
-            }
-            month = String(month).padStart(2, '0');
-            if (year.length === 2) year = '20' + year;
-            
-            if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-                return `${day}-${month}-${year}`;
-            }
-        }
-        
         return dateString;
     }
 
-    function getCandleSvg(type) {
-        if (type === 'tag-buyers') {
-            return `
-            <svg width="30" height="60" viewBox="0 0 30 60">
-                <line x1="15" y1="4" x2="15" y2="18" stroke="#22c55e" stroke-width="2"/>
-                <line x1="15" y1="42" x2="15" y2="56" stroke="#22c55e" stroke-width="2"/>
-                <rect x="10" y="18" width="10" height="24" fill="#22c55e" rx="2"/>
-            </svg>`;
-        } else if (type === 'tag-sellers') {
-            return `
-            <svg width="30" height="60" viewBox="0 0 30 60">
-                <line x1="15" y1="4" x2="15" y2="22" stroke="#ef4444" stroke-width="2"/>
-                <line x1="15" y1="46" x2="15" y2="56" stroke="#ef4444" stroke-width="2"/>
-                <rect x="10" y="22" width="10" height="24" fill="#ef4444" rx="2"/>
-            </svg>`;
-        } else {
-            return `
-            <svg width="30" height="60" viewBox="0 0 30 60">
-                <line x1="15" y1="8" x2="15" y2="22" stroke="#eab308" stroke-width="2"/>
-                <line x1="15" y1="38" x2="15" y2="52" stroke="#eab308" stroke-width="2"/>
-                <rect x="10" y="22" width="10" height="16" fill="#eab308" rx="2"/>
-            </svg>`;
-        }
+    function getCandleSvg() {
+        return `
+        <svg width="30" height="60" viewBox="0 0 30 60">
+            <line x1="15" y1="8" x2="15" y2="22" stroke="#ffffff" stroke-width="2"/>
+            <line x1="15" y1="38" x2="15" y2="52" stroke="#ffffff" stroke-width="2"/>
+            <rect x="10" y="22" width="10" height="16" fill="#ffffff" rx="2"/>
+        </svg>`;
     }
 
     async function updateDashboard() {
@@ -734,36 +651,30 @@
         const peIv = Number(data.pe?.iv) || 0;
 
         const timeValue = Number(data.timeValue) || 0;
-
         const cePeDiff = Math.abs(ceClose - peClose);
+        const atmStrikeText = data.hlcAtmStrike || '-----';
 
         document.getElementById('spotPrice').innerText = spotPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('currentDate').innerText = formatDateToDDMMYYYY(data.currentDate);
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
-        document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
+        document.getElementById('hlcAtmStrike').innerText = atmStrikeText;
+        
+        // Populate HLC ATM value inside the top left card title quotes
+        document.getElementById('ivAtmTitleVal').innerText = atmStrikeText;
 
         document.getElementById('bannerTotal').innerText = cePeDiff.toFixed(2);
         document.getElementById('ceCloseHeader').innerText = ceClose.toFixed(2);
         document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
 
-        // Update top setup elements
         document.getElementById('ceIvVal').innerText = ceIv.toFixed(2);
         document.getElementById('peIvVal').innerText = peIv.toFixed(2);
         document.getElementById('timeVal').innerText = timeValue.toFixed(2);
 
         const ceTagEl = document.getElementById('ceTag');
-        const ceCardEl = document.getElementById('ceCard');
         ceTagEl.innerText = data.ceTag || 'NEUTRAL';
-        ceTagEl.className = `card-tag ${data.ceClass || 'tag-neutral'}`;
+        document.getElementById('ceCandleGraphic').innerHTML = getCandleSvg();
 
-        ceCardEl.className = 'card';
-        if (data.ceClass === 'tag-buyers') ceCardEl.classList.add('card-buyers');
-        else if (data.ceClass === 'tag-sellers') ceCardEl.classList.add('card-sellers');
-        else ceCardEl.classList.add('card-neutral');
-
-        document.getElementById('ceCandleGraphic').innerHTML = getCandleSvg(data.ceClass);
-
-        document.getElementById('ceStrike').innerText = data.hlcAtmStrike || '-----';
+        document.getElementById('ceStrike').innerText = atmStrikeText;
         document.getElementById('ceHigh').innerText = ceHigh.toFixed(2);
         document.getElementById('ceClose').innerText = ceClose.toFixed(2);
         document.getElementById('ceLow').innerText = ceLow.toFixed(2);
@@ -771,18 +682,10 @@
         document.getElementById('ceCL').innerText = (ceClose - ceLow).toFixed(2);
 
         const peTagEl = document.getElementById('peTag');
-        const peCardEl = document.getElementById('peCard');
         peTagEl.innerText = data.peTag || 'NEUTRAL';
-        peTagEl.className = `card-tag ${data.peClass || 'tag-neutral'}`;
+        document.getElementById('peCandleGraphic').innerHTML = getCandleSvg();
 
-        peCardEl.className = 'card';
-        if (data.peClass === 'tag-buyers') peCardEl.classList.add('card-buyers');
-        else if (data.peClass === 'tag-sellers') peCardEl.classList.add('card-sellers');
-        else peCardEl.classList.add('card-neutral');
-
-        document.getElementById('peCandleGraphic').innerHTML = getCandleSvg(data.peClass);
-
-        document.getElementById('peStrike').innerText = data.hlcAtmStrike || '-----';
+        document.getElementById('peStrike').innerText = atmStrikeText;
         document.getElementById('peHigh').innerText = peHigh.toFixed(2);
         document.getElementById('peClose').innerText = peClose.toFixed(2);
         document.getElementById('peLow').innerText = peLow.toFixed(2);
@@ -805,32 +708,26 @@
         document.getElementById('mLow').innerText = mLowVal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         if (data.sniper1) {
-            const s1Ce = Number(data.sniper1.ce) || 0;
-            const s1Pe = Number(data.sniper1.pe) || 0;
             document.getElementById('snip1Atm').innerText = data.sniper1.strike || '-----';
-            document.getElementById('snip1Ce').innerText = s1Ce.toFixed(2);
-            document.getElementById('snip1Pe').innerText = s1Pe.toFixed(2);
+            document.getElementById('snip1Ce').innerText = (Number(data.sniper1.ce) || 0).toFixed(2);
+            document.getElementById('snip1Pe').innerText = (Number(data.sniper1.pe) || 0).toFixed(2);
             document.getElementById('snip1OtmCeStr').innerText = data.sniper1.otmCeStrike || 0;
             document.getElementById('snip1OtmPeStr').innerText = data.sniper1.otmPeStrike || 0;
             document.getElementById('snip1OtmCe').innerText = (Number(data.sniper1.otmCe) || 0).toFixed(2);
             document.getElementById('snip1OtmPe').innerText = (Number(data.sniper1.otmPe) || 0).toFixed(2);
-            
             document.getElementById('snip1Val').innerText = (Number(data.sniper1.value) || 0).toFixed(2);
         }
 
         const sniper2CardEl = document.getElementById('sniper2Card');
         if (data.sniper2) {
             sniper2CardEl.style.display = 'flex';
-            const s2Ce = Number(data.sniper2.ce) || 0;
-            const s2Pe = Number(data.sniper2.pe) || 0;
             document.getElementById('snip2Atm').innerText = data.sniper2.strike || '-----';
-            document.getElementById('snip2Ce').innerText = s2Ce.toFixed(2);
-            document.getElementById('snip2Pe').innerText = s2Pe.toFixed(2);
+            document.getElementById('snip2Ce').innerText = (Number(data.sniper2.ce) || 0).toFixed(2);
+            document.getElementById('snip2Pe').innerText = (Number(data.sniper2.pe) || 0).toFixed(2);
             document.getElementById('snip2OtmCeStr').innerText = data.sniper2.otmCeStrike || 0;
             document.getElementById('snip2OtmPeStr').innerText = data.sniper2.otmPeStrike || 0;
             document.getElementById('snip2OtmCe').innerText = (Number(data.sniper2.otmCe) || 0).toFixed(2);
             document.getElementById('snip2OtmPe').innerText = (Number(data.sniper2.otmPe) || 0).toFixed(2);
-            
             document.getElementById('snip2Val').innerText = (Number(data.sniper2.value) || 0).toFixed(2);
         } else {
             sniper2CardEl.style.display = 'none';
