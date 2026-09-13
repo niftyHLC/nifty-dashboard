@@ -42,8 +42,10 @@
         "line1": 23300.0,
         "line2": 23400.0
     },
-    "spotHigh": 23398.099609375,
-    "spotLow": 23398.099609375,
+    "spotHigh": 23448.099609375,
+    "spotLow": 23231.400390625,
+    "spotDifference": 216.7,
+    "earthLevel": 56.58,
     "sniper1": {
         "strike": 23400,
         "ce": 127.8,
