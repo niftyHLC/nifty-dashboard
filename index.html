@@ -264,11 +264,10 @@
             font-weight: 700;
         }
 
-        /* Supply & Demand Cards matching the updated layout */
+        /* Supply & Demand Cards with Default Borders & White Headers */
         .sd-main-card {
             background: transparent;
-            border-width: 3px;
-            border-style: solid;
+            border: 3px solid #334155;
             border-radius: 10px;
             padding: 10px;
             display: flex;
@@ -277,28 +276,20 @@
             gap: 10px;
         }
 
-        /* Supply Card: Red Outer Border, Red Text, Borderless Header */
-        .sd-supply-card {
-            border-color: #ef4444;
-        }
+        /* Supply Card: Default Border, White Header, Red Values */
         .sd-supply-card .sd-header-box {
             border: none;
-            color: #ef4444;
+            color: #ffffff !important;
         }
-        .sd-supply-card .sd-label,
         .sd-supply-card .sd-val-red {
             color: #ef4444 !important;
         }
 
-        /* Demand Card: Green Outer Border, Green Text, Borderless Header */
-        .sd-demand-card {
-            border-color: #22c55e;
-        }
+        /* Demand Card: Default Border, White Header, Green Values */
         .sd-demand-card .sd-header-box {
             border: none;
-            color: #22c55e;
+            color: #ffffff !important;
         }
-        .sd-demand-card .sd-label,
         .sd-demand-card .sd-val-green {
             color: #22c55e !important;
         }
@@ -528,7 +519,7 @@
         </div>
     </div>
 
-    <!-- Supply & Demand Layout Matching Reference Image -->
+    <!-- Supply & Demand Layout with Default Borders & White Headers -->
     <div class="grid-2">
         <!-- Supply Card (Left) -->
         <div class="sd-main-card sd-supply-card">
