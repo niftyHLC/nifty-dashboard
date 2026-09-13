@@ -33,9 +33,9 @@ def get_market_holidays():
             datetime.date(2026, 6, 26),   # Muharram
             datetime.date(2026, 9, 14),   # Ganesh Chaturthi
             datetime.date(2026, 10, 2),   # Mahatma Gandhi Jayanti
-            datetime.date(2026, 10, 20), # Dussehra
-            datetime.date(2026, 11, 10), # Diwali-Balipratipada
-            datetime.date(2026, 11, 24), # Prakash Gurpurb
+            datetime.date(2026, 10, 20),  # Dussehra
+            datetime.date(2026, 11, 10),  # Diwali-Balipratipada
+            datetime.date(2026, 11, 24),  # Prakash Gurpurb
             datetime.date(2026, 12, 25)   # Christmas
         })
         
@@ -247,7 +247,7 @@ def calculate_dominance_metrics(data_dict):
 
 
 def calculate_zone_row_one(wl, wh, bhav_map):
-    """Calculates Line 1 and Line 2 according to the mathematical formulas in the image:
+    """Calculates Line 1 and Line 2 according to the mathematical formulas:
         - Sum1 = CE1 + PE1 (at Lower Strike WL)
         - Sum2 = CE2 + PE2 (at Upper Strike WH)
         - Line 1 = WL + Sum1
