@@ -264,56 +264,68 @@
             font-weight: 700;
         }
 
-        /* Supply & Demand Cards matching the image layout */
-        .sd-main-card {
+        /* Corrected Supply & Demand 3px Cards matching your design */
+        .sd-card {
             background: transparent;
             border: 3px solid #334155;
             border-radius: 10px;
-            padding: 10px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 10px;
         }
 
-        .sd-header-box {
+        .sd-title-box {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #ffffff;
             background: transparent;
             border: 2px solid #334155;
+            padding: 3px 16px;
             border-radius: 6px;
-            padding: 3px 12px;
-            font-size: 0.65rem;
-            font-weight: 700;
-            color: #ffffff;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
             text-align: center;
+            letter-spacing: 0.5px;
         }
 
-        .sd-body {
+        .sd-content {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
             width: 100%;
             text-align: center;
         }
 
-        .sd-row {
-            font-size: 0.8rem;
-            font-weight: 700;
+        .sd-row-item {
             display: flex;
-            justify-content: space-between;
-            padding: 0 4px;
+            flex-direction: column;
+            align-items: center;
         }
 
-        .sd-label {
+        .sd-label-sub {
+            font-size: 0.65rem;
+            font-weight: 700;
             color: #94a3b8;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .sd-divider-line {
+            width: 100%;
+            height: 1px;
+            background: #334155;
+            margin: 4px 0;
         }
 
         .sd-val-red {
+            font-size: 0.95rem;
+            font-weight: 700;
             color: #ef4444;
         }
 
         .sd-val-green {
+            font-size: 0.95rem;
+            font-weight: 700;
             color: #22c55e;
         }
 
@@ -503,34 +515,36 @@
         </div>
     </div>
 
-    <!-- Supply & Demand Layout Matching Reference Image -->
+    <!-- Supply & Demand Exact Layout Match -->
     <div class="grid-2">
         <!-- Supply Card (Left) -->
-        <div class="sd-main-card">
-            <div class="sd-header-box">SUPPLY</div>
-            <div class="sd-body">
-                <div class="sd-row">
-                    <span class="sd-label">MIN</span>
-                    <span class="sd-val-red" id="minSupply">0.00</span>
+        <div class="sd-card">
+            <div class="sd-title-box">SUPPLY</div>
+            <div class="sd-content">
+                <div class="sd-row-item">
+                    <div class="sd-label-sub">MIN SUPPLY</div>
+                    <div class="sd-val-red" id="minSupply">0.00</div>
                 </div>
-                <div class="sd-row">
-                    <span class="sd-label">MAX</span>
-                    <span class="sd-val-red" id="maxSupply">0.00</span>
+                <div class="sd-divider-line"></div>
+                <div class="sd-row-item">
+                    <div class="sd-label-sub">MAX SUPPLY</div>
+                    <div class="sd-val-red" id="maxSupply">0.00</div>
                 </div>
             </div>
         </div>
 
         <!-- Demand Card (Right) -->
-        <div class="sd-main-card">
-            <div class="sd-header-box">DEMAND</div>
-            <div class="sd-body">
-                <div class="sd-row">
-                    <span class="sd-label">MIN</span>
-                    <span class="sd-val-green" id="minDemand">0.00</span>
+        <div class="sd-card">
+            <div class="sd-title-box">DEMAND</div>
+            <div class="sd-content">
+                <div class="sd-row-item">
+                    <div class="sd-label-sub">MIN DEMAND</div>
+                    <div class="sd-val-green" id="minDemand">0.00</div>
                 </div>
-                <div class="sd-row">
-                    <span class="sd-label">MAX</span>
-                    <span class="sd-val-green" id="maxDemand">0.00</span>
+                <div class="sd-divider-line"></div>
+                <div class="sd-row-item">
+                    <div class="sd-label-sub">MAX DEMAND</div>
+                    <div class="sd-val-green" id="maxDemand">0.00</div>
                 </div>
             </div>
         </div>
