@@ -183,13 +183,17 @@
             color: #eab308 !important;
         }
 
+        .card-tag-container {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
         .card-tag {
             font-size: 0.65rem;
             font-weight: 700;
             padding: 2px 8px;
             border-radius: 4px;
             display: inline-block;
-            margin-bottom: 8px;
         }
 
         .tag-neutral {
@@ -429,7 +433,9 @@
     <div class="grid-2">
         <!-- Call Option Card -->
         <div class="card" id="ceCard">
-            <div id="ceTag" class="card-tag tag-neutral">NEUTRAL</div>
+            <div class="card-tag-container">
+                <div id="ceTag" class="card-tag tag-neutral">NEUTRAL</div>
+            </div>
             <div class="strike-header">
                 <span id="ceStrike">-----</span>
                 <span style="font-size: 0.85rem; font-weight: 700;">CE</span>
@@ -450,7 +456,9 @@
 
         <!-- Put Option Card -->
         <div class="card" id="peCard">
-            <div id="peTag" class="card-tag tag-neutral">NEUTRAL</div>
+            <div class="card-tag-container">
+                <div id="peTag" class="card-tag tag-neutral">NEUTRAL</div>
+            </div>
             <div class="strike-header">
                 <span id="peStrike">-----</span>
                 <span style="font-size: 0.85rem; font-weight: 700;">PE</span>
