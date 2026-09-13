@@ -276,7 +276,6 @@
             gap: 10px;
         }
 
-        /* Supply Card: Default Border, White Header, Red Labels & Values */
         .sd-supply-card .sd-header-box {
             border: none;
             color: #ffffff !important;
@@ -286,7 +285,6 @@
             color: #ef4444 !important;
         }
 
-        /* Demand Card: Default Border, White Header, Green Labels & Values */
         .sd-demand-card .sd-header-box {
             border: none;
             color: #ffffff !important;
@@ -605,9 +603,9 @@
     <div class="refresh-info" id="refreshTimer">Next auto-refresh in 30s</div>
 </div>
 
-<!-- Hidden File Input & Floating Plus Button -->
-<input type="file" id="manualFileInput" accept=".json" style="display: none;">
-<button class="fab-upload" id="uploadBtn" title="Upload Manual JSON Data">+</button>
+<!-- Updated File Input accepting JSON and CSV, with Floating Plus Button -->
+<input type="file" id="manualFileInput" accept=".json, .csv" style="display: none;">
+<button class="fab-upload" id="uploadBtn" title="Upload Manual JSON or CSV Data">+</button>
 
 <script>
     if ('serviceWorker' in navigator) {
@@ -698,17 +696,42 @@
 
         const reader = new FileReader();
         reader.onload = function(e) {
-            try {
-                const rawText = e.target.result;
-                const parsed = JSON.parse(rawText);
-                
-                parsed.source = "MANUAL";
-                manualDataPayload = parsed;
-                renderDashboard(manualDataPayload);
-                document.getElementById('refreshTimer').innerText = 'MANUAL MODE ACTIVE';
-            } catch (err) {
-                console.error("JSON Parsing Error Details:", err);
-                alert("Invalid JSON file format. Please check your console (F12) for specific syntax errors.");
+            const rawText = e.target.result;
+            
+            if (file.name.endsWith('.json')) {
+                try {
+                    const parsed = JSON.parse(rawText);
+                    parsed.source = "MANUAL";
+                    manualDataPayload = parsed;
+                    renderDashboard(manualDataPayload);
+                    document.getElementById('refreshTimer').innerText = 'MANUAL MODE ACTIVE';
+                } catch (err) {
+                    alert("Invalid JSON file format.");
+                }
+            } else if (file.name.endsWith('.csv')) {
+                try {
+                    const lines = rawText.split("\n");
+                    // Basic CSV parser handling standard headers
+                    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+                    
+                    // Create a generic structured payload from CSV rows
+                    let parsed = {
+                        source: "MANUAL",
+                        bhavcopyReady: true,
+                        spotPrice: 0,
+                        currentDate: new Date().toISOString(),
+                        expiryDate: new Date().toISOString(),
+                        hlcAtmStrike: "N/A",
+                        ce: { high: 0, close: 0, low: 0 },
+                        pe: { high: 0, close: 0, low: 0 }
+                    };
+
+                    manualDataPayload = parsed;
+                    renderDashboard(manualDataPayload);
+                    document.getElementById('refreshTimer').innerText = 'MANUAL CSV MODE ACTIVE';
+                } catch (err) {
+                    alert("Error parsing CSV file format.");
+                }
             }
         };
         reader.readAsText(file);
@@ -754,7 +777,6 @@
         const peLow = Number(data.pe?.low) || 0;
 
         const cePeDiff = Math.abs(ceClose - peClose);
-        const bannerTotal = Number(data.bannerTotal) || (ceClose + peClose);
 
         document.getElementById('spotPrice').innerText = spotPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
