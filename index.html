@@ -145,7 +145,6 @@
             transition: all 0.3s ease;
         }
 
-        /* --- Full Card State Themes --- */
         .card.card-buyers {
             border-color: #22c55e;
             background: rgba(34, 197, 94, 0.05);
@@ -722,7 +721,6 @@
         document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
-        // Handles line1/line2 or high/low fallbacks smoothly
         const wHighVal = Number(data.weeklyZones?.line1 ?? data.weeklyZones?.high) || 0;
         const wLowVal = Number(data.weeklyZones?.line2 ?? data.weeklyZones?.low) || 0;
         const mHighVal = Number(data.monthlyZones?.line1 ?? data.monthlyZones?.high) || 0;
@@ -761,7 +759,7 @@
             document.getElementById('snip2Val').innerText = (Number(data.sniper2.value) || 0).toFixed(2);
         }
 
-        document.getElementById('earthVal').innerText = (bannerTotal * 0.1215).toFixed(2);
+        document.getElementById('earthVal').innerText = (Number(data.earthLevel) || 0).toFixed(2);
     }
 
     updateDashboard();
