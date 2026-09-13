@@ -479,9 +479,9 @@
     </div>
 
     <div class="grid-2">
-        <!-- Left Box: ATM Strike & IV -->
+        <!-- Left Box: ATM Strike & Implied Volatility -->
         <div class="iv-time-card">
-            <div class="iv-time-title"><span id="ivAtmStrike">-----</span> IV</div>
+            <div class="iv-time-title"><span id="ivAtmStrike">-----</span> Implied Volatility</div>
             <div class="iv-split-row">
                 <div>CE IV - <span id="ceIvVal">0.00</span></div>
                 <div>PE IV - <span id="peIvVal">0.00</span></div>
@@ -740,7 +740,7 @@
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
         document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
         
-        // Update IV ATM Strike display dynamically without "HLC ATM"
+        // Update IV ATM Strike display dynamically
         document.getElementById('ivAtmStrike').innerText = data.hlcAtmStrike || '-----';
 
         document.getElementById('bannerTotal').innerText = cePeDiff.toFixed(2);
