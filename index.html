@@ -416,31 +416,6 @@
             text-align: center;
             margin-top: -4px;
         }
-
-        .fab-upload {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 50px;
-            height: 50px;
-            background: #0ea5e9;
-            color: #ffffff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.8rem;
-            font-weight: bold;
-            cursor: pointer;
-            border: none;
-            z-index: 1000;
-            transition: transform 0.2s ease, background 0.2s ease;
-        }
-
-        .fab-upload:hover {
-            background: #0284c7;
-            transform: scale(1.05);
-        }
     </style>
 </head>
 <body>
@@ -602,9 +577,6 @@
     <div class="refresh-info" id="refreshTimer">Next auto-refresh in 30s</div>
 </div>
 
-<input type="file" id="manualFileInput" accept=".json, .csv, .dat" style="display: none;">
-<button class="fab-upload" id="uploadBtn" title="Upload Manual JSON, CSV or DAT Data">+</button>
-
 <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
@@ -614,7 +586,6 @@
         });
     }
 
-    let manualDataPayload = null;
     let countdown = 30;
 
     function formatDateToDDMMYYYY(dateString) {
@@ -681,133 +652,7 @@
         }
     }
 
-    const uploadBtn = document.getElementById('uploadBtn');
-    const fileInput = document.getElementById('manualFileInput');
-
-    uploadBtn.addEventListener('click', () => {
-        fileInput.click();
-    });
-
-    fileInput.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const rawText = e.target.result;
-            
-            if (file.name.endsWith('.json')) {
-                try {
-                    const parsed = JSON.parse(rawText);
-                    parsed.source = "MANUAL";
-                    manualDataPayload = parsed;
-                    renderDashboard(manualDataPayload);
-                    document.getElementById('refreshTimer').innerText = 'MANUAL MODE ACTIVE';
-                } catch (err) {
-                    alert("Invalid JSON file format.");
-                }
-            } else if (file.name.endsWith('.csv') || file.name.endsWith('.dat')) {
-                try {
-                    const lines = rawText.split(/\r?\n/);
-                    if (lines.length < 2) {
-                        alert("The uploaded file appears to be empty or invalid.");
-                        return;
-                    }
-
-                    let headers = [];
-                    let bhavMap = {};
-                    let expiries = new Set();
-
-                    for (let i = 0; i < lines.length; i++) {
-                        let line = lines[i].trim();
-                        if (!line) continue;
-
-                        let delimiter = line.includes('|') ? '|' : ',';
-                        let cols = line.split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ''));
-
-                        if (i === 0) {
-                            headers = cols.map(h => h.toUpperCase());
-                            continue;
-                        }
-
-                        let row = {};
-                        for (let h = 0; h < headers.length; h++) {
-                            row[headers[h]] = cols[h] || '';
-                        }
-
-                        let symbol = row["TCKRSYMB"] || row["SYMBOL"] || row["FININSTRNM"] || "";
-                        if (!symbol.toUpperCase().includes("NIFTY")) continue;
-
-                        let strikeRaw = row["STRKPRIC"] || row["STRIKEPRIC"] || row["STRIKE_PR"] || row["STRIKE"] || "0";
-                        let strike = Math.round(parseFloat(strikeRaw) || 0);
-                        if (strike === 0) continue;
-
-                        let optTypeRaw = row["OPTNTP"] || row["OPTION_TYP"] || row["OPTIONTYPE"] || "";
-                        let optType = optTypeRaw.toUpperCase().includes("CE") ? "CE" : optTypeRaw.toUpperCase().includes("PE") ? "PE" : "";
-                        if (!optType) continue;
-
-                        let expiry = (row["XPRYDT"] || row["EXPIRY_DT"] || row["EXPIRY"] || "").toUpperCase();
-                        if (expiry) expiries.add(expiry);
-
-                        let high = parseFloat(row["HGHPRIC"] || row["HIGH"] || 0);
-                        let low = parseFloat(row["LWPRIC"] || row["LOW"] || 0);
-                        let close = parseFloat(row["CLSPRIC"] || row["CLOSE"] || row["SETTLE_PR"] || 0);
-
-                        if (high > 0 || low > 0 || close > 0) {
-                            bhavMap[`${strike}_${optType}`] = { high, low, close };
-                        }
-                    }
-
-                    let expiryArr = Array.from(expiries);
-                    let targetExpiry = expiryArr[0] || new Date().toISOString();
-
-                    let strikes = Object.keys(bhavMap).map(k => parseInt(k.split('_')[0]));
-                    let uniqueStrikes = [...new Set(strikes)].sort((a, b) => a - b);
-                    let approxSpot = uniqueStrikes.length > 0 ? uniqueStrikes[Math.floor(uniqueStrikes.length / 2)] : 23450;
-                    let atmStrike = Math.round(approxSpot / 50) * 50;
-
-                    let ceData = bhavMap[`${atmStrike}_CE`] || { high: 0, low: 0, close: 0 };
-                    let peData = bhavMap[`${atmStrike}_PE`] || { high: 0, low: 0, close: 0 };
-
-                    let parsedPayload = {
-                        source: "MANUAL",
-                        bhavcopyReady: true,
-                        currentDate: new Date().toISOString(),
-                        expiryDate: targetExpiry,
-                        spotPrice: approxSpot,
-                        hlcAtmStrike: atmStrike,
-                        ce: ceData,
-                        pe: peData,
-                        ceTag: "NEUTRAL",
-                        ceClass: "tag-neutral",
-                        peTag: "NEUTRAL",
-                        peClass: "tag-neutral",
-                        minSupply: atmStrike + ceData.close,
-                        minDemand: atmStrike - peData.close,
-                        maxSupply: atmStrike + (ceData.close + peData.close),
-                        maxDemand: atmStrike - (ceData.close + peData.close),
-                        weeklyZones: { line1: atmStrike - 100, line2: atmStrike + 100 },
-                        monthlyZones: { line1: atmStrike - 200, line2: atmStrike + 200 },
-                        sniper1: { strike: atmStrike, ce: ceData.close, pe: peData.close, value: (ceData.close + peData.close) / 2 },
-                        sniper2: null,
-                        earthLevel: 0
-                    };
-
-                    manualDataPayload = parsedPayload;
-                    renderDashboard(manualDataPayload);
-                    document.getElementById('refreshTimer').innerText = 'MANUAL FILE MODE ACTIVE';
-                } catch (err) {
-                    console.error(err);
-                    alert("Error parsing CSV/DAT file format.");
-                }
-            }
-        };
-        reader.readAsText(file);
-    });
-
     async function updateDashboard() {
-        if (manualDataPayload) return;
-
         try {
             const response = await fetch(`data.json?t=${Date.now()}`);
             if (!response.ok) return;
@@ -823,11 +668,7 @@
         if (!data) return;
         const alertBanner = document.getElementById('bhavcopyAlert');
 
-        if (data.source === 'MANUAL') {
-            alertBanner.innerText = '🛡️ MANUAL MODE ACTIVE (Auto-updates bypassed)';
-            alertBanner.style.backgroundColor = '#0284c7';
-            alertBanner.style.display = 'block';
-        } else if (data.bhavcopyReady === false) {
+        if (data.bhavcopyReady === false) {
             alertBanner.innerText = '⚠️ Data Not Ready Yet , Please Wait';
             alertBanner.style.backgroundColor = '#dc2626';
             alertBanner.style.display = 'block';
@@ -948,7 +789,6 @@
     updateDashboard();
 
     setInterval(() => {
-        if (manualDataPayload) return;
         countdown--;
         if (countdown <= 0) {
             updateDashboard();
