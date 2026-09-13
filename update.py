@@ -23,20 +23,20 @@ def get_market_holidays():
     if current_year == 2026:
         holiday_set.update({
             datetime.date(2026, 1, 15),  # Municipal Corp Election
-            datetime.date(2026, 3, 3),   # Holi
-            datetime.date(2026, 3, 26),  # Shri Ram Navami
-            datetime.date(2026, 3, 31),  # Shri Mahavir Jayanti
-            datetime.date(2026, 4, 3),   # Good Friday
-            datetime.date(2026, 4, 14),  # Dr. Baba Saheb Ambedkar Jayanti
-            datetime.date(2026, 5, 1),   # Maharashtra Day
-            datetime.date(2026, 5, 28),  # Bakri Id
-            datetime.date(2026, 6, 26),  # Muharram
-            datetime.date(2026, 9, 14),  # Ganesh Chaturthi
-            datetime.date(2026, 10, 2),  # Mahatma Gandhi Jayanti
+            datetime.date(2026, 3, 3),    # Holi
+            datetime.date(2026, 3, 26),   # Shri Ram Navami
+            datetime.date(2026, 3, 31),   # Shri Mahavir Jayanti
+            datetime.date(2026, 4, 3),    # Good Friday
+            datetime.date(2026, 4, 14),   # Dr. Baba Saheb Ambedkar Jayanti
+            datetime.date(2026, 5, 1),    # Maharashtra Day
+            datetime.date(2026, 5, 28),   # Bakri Id
+            datetime.date(2026, 6, 26),   # Muharram
+            datetime.date(2026, 9, 14),   # Ganesh Chaturthi
+            datetime.date(2026, 10, 2),   # Mahatma Gandhi Jayanti
             datetime.date(2026, 10, 20), # Dussehra
             datetime.date(2026, 11, 10), # Diwali-Balipratipada
             datetime.date(2026, 11, 24), # Prakash Gurpurb
-            datetime.date(2026, 12, 25)  # Christmas
+            datetime.date(2026, 12, 25)   # Christmas
         })
         
     return holiday_set
@@ -388,6 +388,9 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     spot_difference = round(spot_high - spot_low, 2)
     earth_level = round(spot_difference * 0.2611, 2)
 
+    # Check if Round 100 and HLC Match strikes are the same
+    hide_sniper2 = (sniper1_atm_strike == sniper2_atm_strike)
+
     payload = {
         "dataStatus": "SUCCESS",
         "bhavcopyReady": bhavcopy_is_ready,
@@ -411,13 +414,13 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
         "spotHigh": spot_high,
         "spotLow": spot_low,
         "spotDifference": spot_difference,
-        "earthLevel": earth_level,  # <--- Added Earth Level to payload
+        "earthLevel": earth_level,
         "sniper1": {
             "strike": sniper1_atm_strike, "ce": round(s1_atm_ce_val, 2), "pe": round(s1_atm_pe_val, 2),
             "otmCeStrike": target_s1_ce_strike, "otmPeStrike": target_s1_pe_strike,
             "otmCe": round(s1_ce_val, 2), "otmPe": round(s1_pe_val, 2), "value": sniper1_val
         },
-        "sniper2": {
+        "sniper2": None if hide_sniper2 else {
             "strike": sniper2_atm_strike, "ce": round(s2_atm_ce_val, 2), "pe": round(s2_atm_pe_val, 2),
             "otmCeStrike": target_s2_ce_strike, "otmPeStrike": target_s2_pe_strike,
             "otmCe": round(s2_ce_val, 2), "otmPe": round(s2_pe_val, 2), "value": sniper2_val
@@ -427,7 +430,7 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     with open("data.json", "w") as f:
         json.dump(payload, f, indent=4)
         
-    print(f"Data saved successfully. Earth Level: {earth_level} (High: {spot_high}, Low: {spot_low}). Bhavcopy Ready: {bhavcopy_is_ready}")
+    print(f"Data saved successfully. Earth Level: {earth_level}. Hide Sniper 2 (Duplicates): {hide_sniper2}")
     push_to_github()
 
 
