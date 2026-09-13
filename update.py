@@ -33,9 +33,9 @@ def get_market_holidays():
             datetime.date(2026, 6, 26),   # Muharram
             datetime.date(2026, 9, 14),   # Ganesh Chaturthi
             datetime.date(2026, 10, 2),   # Mahatma Gandhi Jayanti
-            datetime.date(2026, 10, 20),  # Dussehra
-            datetime.date(2026, 11, 10),  # Diwali-Balipratipada
-            datetime.date(2026, 11, 24),  # Prakash Gurpurb
+            datetime.date(2026, 10, 20), # Dussehra
+            datetime.date(2026, 11, 10), # Diwali-Balipratipada
+            datetime.date(2026, 11, 24), # Prakash Gurpurb
             datetime.date(2026, 12, 25)   # Christmas
         })
         
@@ -82,7 +82,7 @@ def fetch_live_spot_from_yahoo():
 
 
 def download_today_bhavcopy():
-    """Downloads official Bhavcopy directly from NSE archives using a session to handle cookies."""
+    """Downloads official Bhavcopy directly from NSE archives."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
@@ -95,11 +95,7 @@ def download_today_bhavcopy():
     
     url = f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{yyyy}{mm}{dd}_F_0000.csv.zip"
     try:
-        session = requests.Session()
-        # Hit main page first to grab mandatory cookies for Cloudflare/WAF bypass
-        session.get("https://www.nseindia.com", headers=headers, timeout=10)
-        
-        response = session.get(url, headers=headers, timeout=30)
+        response = requests.get(url, headers=headers, timeout=30)
         
         if response.status_code == 200 and len(response.content) > 1000:
             if os.path.exists("bhavcopy.csv"):
