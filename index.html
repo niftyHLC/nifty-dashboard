@@ -481,7 +481,6 @@
     </div>
 
     <div class="grid-2">
-        <!-- Left Box: IMPLIED VOLATILITY (Calculated Automatically from HLC ATM) -->
         <div class="iv-time-card">
             <div class="iv-time-title">IMPLIED VOLATILITY</div>
             <div class="iv-split-row">
@@ -490,7 +489,6 @@
             </div>
         </div>
 
-        <!-- Right Box: TIME VALUE -->
         <div class="iv-time-card">
             <div class="iv-time-title">TIME VALUE</div>
             <div class="time-val-display" id="timeVal">0.00</div>
@@ -498,7 +496,6 @@
     </div>
 
     <div class="grid-2">
-        <!-- Call Option Card -->
         <div class="card" id="ceCard">
             <div class="card-tag-container">
                 <div id="ceTag" class="card-tag tag-neutral">NEUTRAL</div>
@@ -521,7 +518,6 @@
             </div>
         </div>
 
-        <!-- Put Option Card -->
         <div class="card" id="peCard">
             <div class="card-tag-container">
                 <div id="peTag" class="card-tag tag-neutral">NEUTRAL</div>
@@ -545,7 +541,6 @@
         </div>
     </div>
 
-    <!-- Supply & Demand Layout -->
     <div class="grid-2">
         <div class="sd-main-card sd-supply-card">
             <div class="sd-header-box">SUPPLY</div>
@@ -626,14 +621,6 @@
 </div>
 
 <script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(registrations => {
-            for(let registration of registrations) {
-                registration.unregister();
-            }
-        });
-    }
-
     function formatDateToDDMMYYYY(dateString) {
         if (!dateString) return '-- -- ----';
         
@@ -673,7 +660,6 @@
         return dateString;
     }
 
-    // Function to compute estimated Implied Volatility (IV) using Brenner-Subrahmanyam approximation for ATM options
     function calculateAtmIv(spot, strike, optionPrice, currentDateStr, expiryDateStr) {
         if (!spot || !strike || !optionPrice || optionPrice <= 0) return 0;
         
@@ -684,13 +670,11 @@
         
         let diffTime = exp.getTime() - curr.getTime();
         let diffDays = diffTime / (1000 * 3600 * 24);
-        if (diffDays <= 0) diffDays = 1; // Minimum 1 day fallback
+        if (diffDays <= 0) diffDays = 1;
         let T = diffDays / 365.0;
 
-        // Brenner-Subrahmanyam approximation formula for ATM Option IV: IV = (OptionPrice / Spot) * sqrt(2 * pi / T) * 100
         let iv = (optionPrice / spot) * Math.sqrt(2 * Math.PI / T) * 100;
         
-        // Boundaries for safety
         if (iv < 1.0) iv = 1.0;
         if (iv > 250.0) iv = 250.0;
         
@@ -759,7 +743,6 @@
         const timeValue = Number(data.timeValue) || 0;
         const cePeDiff = Math.abs(ceClose - peClose);
 
-        // Automatically calculate IV using HLC ATM strike and option close prices
         let ceIv = Number(data.ce?.iv);
         if (isNaN(ceIv) || ceIv <= 0) {
             ceIv = calculateAtmIv(spotPrice, hlcAtmStrike, ceClose, data.currentDate, data.expiryDate);
@@ -791,7 +774,10 @@
         peIvContainer.style.color = peIvColor;
         document.getElementById('peIvVal').style.color = peIvColor;
 
+        // Dynamic Time Value Color Styling: >= 100 shows green, otherwise red
         document.getElementById('timeVal').innerText = timeValue.toFixed(2);
+        const timeValEl = document.getElementById('timeVal');
+        timeValEl.style.color = timeValue >= 100 ? '#22c55e' : '#ef4444';
 
         const ceTagEl = document.getElementById('ceTag');
         const ceCardEl = document.getElementById('ceCard');
