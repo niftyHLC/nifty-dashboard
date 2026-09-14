@@ -3,7 +3,7 @@
     "bhavcopyReady": false,
     "currentDate": "15 SEP 2026",
     "expiryDate": "2026-09-15",
-    "spotPrice": 23398.099609375,
+    "spotPrice": 23398.1,
     "hlcAtmStrike": 23450,
     "ce": {
         "high": 125.0,
@@ -44,10 +44,10 @@
         "line1": 23300.0,
         "line2": 23400.0
     },
-    "spotHigh": 23448.099609375,
-    "spotLow": 23231.400390625,
-    "spotDifference": 216.7,
-    "earthLevel": 56.58,
+    "spotHigh": 23450.0,
+    "spotLow": 23350.0,
+    "spotDifference": 100.0,
+    "earthLevel": 26.11,
     "sniper1": {
         "strike": 23400,
         "ce": 127.8,
