@@ -134,6 +134,61 @@ def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
     return ce_iv, pe_iv
 
 
+def calculate_asymmetric_time_value(spot_price, target_expiry):
+    """
+    Calculates Asymmetric Cross-Strike Time Value:
+    - Finds ATM boundary strike closest to spot.
+    - Takes CE LTP from 1 strike ABOVE the boundary.
+    - Takes PE LTP from 1 strike BELOW the boundary.
+    """
+    data = fetch_nse_option_chain_data("NIFTY")
+    if not data:
+        return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
+
+    try:
+        records = data.get("records", {}).get("data", [])
+        strike_map = {}
+        
+        for item in records:
+            strike = float(item.get("strikePrice", 0))
+            expiry = item.get("CE", {}).get("expiryDate") or item.get("PE", {}).get("expiryDate")
+            
+            if expiry and str(expiry).strip().upper() == str(target_expiry).strip().upper():
+                ce_ltp = float(item.get("CE", {}).get("lastPrice", 0.0)) if "CE" in item else 0.0
+                pe_ltp = float(item.get("PE", {}).get("lastPrice", 0.0)) if "PE" in item else 0.0
+                strike_map[strike] = {"ce": ce_ltp, "pe": pe_ltp}
+
+        if not strike_map:
+            return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
+
+        sorted_strikes = sorted(strike_map.keys())
+        
+        # Find ATM boundary (closest strike to spot price)
+        atm_strike = min(sorted_strikes, key=lambda x: abs(x - spot_price))
+        atm_idx = sorted_strikes.index(atm_strike)
+
+        # 1 strike above and 1 strike below
+        if atm_idx > 0 and atm_idx < len(sorted_strikes) - 1:
+            ce_strike_above = sorted_strikes[atm_idx + 1]
+            pe_strike_below = sorted_strikes[atm_idx - 1]
+
+            ce_ltp = strike_map[ce_strike_above]["ce"]
+            pe_ltp = strike_map[pe_strike_below]["pe"]
+            total_tv = round(ce_ltp + pe_ltp, 2)
+
+            return {
+                "total": total_tv,
+                "ceStrike": ce_strike_above,
+                "ceLtp": ce_ltp,
+                "peStrike": pe_strike_below,
+                "peLtp": pe_ltp
+            }
+    except Exception as e:
+        print(f"Error calculating asymmetric time value: {e}")
+
+    return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
+
+
 def download_today_bhavcopy():
     """Downloads official Bhavcopy directly from NSE archives."""
     headers = {
@@ -423,6 +478,9 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     if live_pe_iv > 0:
         pe_metrics["iv"] = round(live_pe_iv, 2)
 
+    # Calculate Asymmetric Time Value from live NSE option chain
+    asymmetric_tv_data = calculate_asymmetric_time_value(spot, w_exp)
+
     s1_atm_ce_val = w_bhav.get((sniper1_atm_strike, "CE"), {}).get("close", 0.0)
     s1_atm_pe_val = w_bhav.get((sniper1_atm_strike, "PE"), {}).get("close", 0.0)
     s1_ce_val = w_bhav.get((target_s1_ce_strike, "CE"), {}).get("close", 0.0)
@@ -468,6 +526,7 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
         "peTag": pe_metrics["dominance"], 
         "peClass": pe_metrics["tagClass"],
         "bannerTotal": round(ce_metrics["close"] + pe_metrics["close"], 2),
+        "asymmetricTimeValue": asymmetric_tv_data,
         "minSupply": min_supply_val,
         "minDemand": min_demand_val,
         "maxSupply": max_supply_val,
@@ -493,7 +552,7 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     with open("data.json", "w") as f:
         json.dump(payload, f, indent=4)
         
-    print(f"Data saved successfully. Earth Level: {earth_level}. Hide Sniper 2 (Duplicates): {hide_sniper2}")
+    print(f"Data saved successfully. Earth Level: {earth_level}. Asymmetric TV: {asymmetric_tv_data['total']}")
     push_to_github()
 
 
