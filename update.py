@@ -81,6 +81,59 @@ def fetch_live_spot_from_yahoo():
     return 0.0, 0.0, 0.0
 
 
+def fetch_nse_option_chain_data(symbol="NIFTY"):
+    """Fetches the live option chain JSON directly from NSE with proper session cookies."""
+    base_url = "https://www.nseindia.com"
+    api_url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive"
+    }
+
+    session = requests.Session()
+    try:
+        session.get(base_url, headers=headers, timeout=10)
+        response = session.get(api_url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f"Failed to fetch live NSE option chain: {e}")
+    return None
+
+
+def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
+    """
+    Searches the live NSE option chain JSON for your exact HLC ATM strike 
+    and target expiry, returning the official implied volatility for CE and PE.
+    """
+    data = fetch_nse_option_chain_data("NIFTY")
+    ce_iv = 0.0
+    pe_iv = 0.0
+
+    if not data:
+        return ce_iv, pe_iv
+
+    try:
+        records = data.get("records", {}).get("data", [])
+        for item in records:
+            if float(item.get("strikePrice", 0)) == float(hlc_atm_strike):
+                ce_data = item.get("CE", {})
+                if ce_data and str(ce_data.get("expiryDate", "")).strip().upper() == str(target_expiry).strip().upper():
+                    ce_iv = float(ce_data.get("impliedVolatility", 0.0))
+                
+                pe_data = item.get("PE", {})
+                if pe_data and str(pe_data.get("expiryDate", "")).strip().upper() == str(target_expiry).strip().upper():
+                    pe_iv = float(pe_data.get("impliedVolatility", 0.0))
+                break
+    except Exception as e:
+        print(f"Error parsing live IV from NSE data: {e}")
+
+    return ce_iv, pe_iv
+
+
 def download_today_bhavcopy():
     """Downloads official Bhavcopy directly from NSE archives."""
     headers = {
@@ -362,6 +415,13 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
 
     ce_metrics = calculate_dominance_metrics(ce_dict)
     pe_metrics = calculate_dominance_metrics(pe_dict)
+
+    # Fetch live official IV from NSE option chain API for the exact HLC ATM strike & Expiry
+    live_ce_iv, live_pe_iv = get_live_iv_from_nse(hlc_atm_strike, w_exp)
+    if live_ce_iv > 0:
+        ce_metrics["iv"] = round(live_ce_iv, 2)
+    if live_pe_iv > 0:
+        pe_metrics["iv"] = round(live_pe_iv, 2)
 
     s1_atm_ce_val = w_bhav.get((sniper1_atm_strike, "CE"), {}).get("close", 0.0)
     s1_atm_pe_val = w_bhav.get((sniper1_atm_strike, "PE"), {}).get("close", 0.0)
