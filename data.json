@@ -32,6 +32,13 @@
     "peTag": "SELLERS",
     "peClass": "tag-sellers",
     "bannerTotal": 199.75,
+    "asymmetricTimeValue": {
+        "total": 0.0,
+        "ceStrike": 0,
+        "ceLtp": 0.0,
+        "peStrike": 0,
+        "peLtp": 0.0
+    },
     "minSupply": 23548.65,
     "minDemand": 23348.9,
     "maxSupply": 23649.75,
