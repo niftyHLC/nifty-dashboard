@@ -436,21 +436,27 @@
         .sniper-text-main {
             font-size: 0.8rem;
             font-weight: 700;
-            color: #ffffff; /* Changed to white */
+            color: #38bdf8;
         }
 
         .sniper-sub-text {
             font-size: 0.8rem;
             font-weight: 700;
-            color: #ffffff; /* Changed to white */
+            color: #38bdf8;
             margin-top: 2px;
         }
 
         .sniper-val {
             font-size: 1.4rem;
             font-weight: 700;
-            color: #ffffff; /* Changed to white */
+            color: #38bdf8;
             margin-top: 2px;
+        }
+
+        /* White color applied specifically to pipe separators inside sniper text */
+        .sniper-text-main span.pipe,
+        .sniper-sub-text span.pipe {
+            color: #ffffff !important;
         }
 
         .earth-card {
@@ -606,10 +612,10 @@
         <div class="sniper-content-wrapper">
             <div class="sniper-tag">SNIPER ATM (ROUND 100)</div>
             <div class="sniper-text-main">
-                <span id="snip1Atm">-----</span> CE <span id="snip1Ce">0.00</span> | PE <span id="snip1Pe">0.00</span>
+                <span id="snip1Atm">-----</span> CE <span id="snip1Ce">0.00</span> <span class="pipe">|</span> PE <span id="snip1Pe">0.00</span>
             </div>
             <div class="sniper-sub-text">
-                OTM <span id="snip1OtmCeStr">0</span> CE <span id="snip1OtmCe">0.00</span> | <span id="snip1OtmPeStr">0</span> PE <span id="snip1OtmPe">0.00</span>
+                OTM <span id="snip1OtmCeStr">0</span> CE <span id="snip1OtmCe">0.00</span> <span class="pipe">|</span> <span id="snip1OtmPeStr">0</span> PE <span id="snip1OtmPe">0.00</span>
             </div>
         </div>
         <div class="sniper-val" id="snip1Val">0.00</div>
@@ -619,10 +625,10 @@
         <div class="sniper-content-wrapper">
             <div class="sniper-tag">SNIPER ATM (HLC MATCH)</div>
             <div class="sniper-text-main">
-                <span id="snip2Atm">-----</span> CE <span id="snip2Ce">0.00</span> | PE <span id="snip2Pe">0.00</span>
+                <span id="snip2Atm">-----</span> CE <span id="snip2Ce">0.00</span> <span class="pipe">|</span> PE <span id="snip2Pe">0.00</span>
             </div>
             <div class="sniper-sub-text">
-                OTM <span id="snip2OtmCeStr">0</span> CE <span id="snip2OtmCe">0.00</span> | <span id="snip2OtmPeStr">0</span> PE <span id="snip2OtmPe">0.00</span>
+                OTM <span id="snip2OtmCeStr">0</span> CE <span id="snip2OtmCe">0.00</span> <span class="pipe">|</span> <span id="snip2OtmPeStr">0</span> PE <span id="snip2OtmPe">0.00</span>
             </div>
         </div>
         <div class="sniper-val" id="snip2Val">0.00</div>
