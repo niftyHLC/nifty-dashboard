@@ -588,6 +588,7 @@
             <div class="iv-time-title">IMPLIED VOLATILITY</div>
             <div class="iv-split-row">
                 <div id="ceIvContainer">CE - <span id="ceIvVal">0.00</span></div>
+                <div>|</div>
                 <div id="peIvContainer">PE - <span id="peIvVal">0.00</span></div>
             </div>
         </div>
@@ -602,7 +603,7 @@
         <div class="sniper-content-wrapper">
             <div class="sniper-tag">SNIPER ATM (ROUND 100)</div>
             <div class="sniper-text-main">
-                <span id="snip1Atm">-----</span> CE <span id="snip1Ce">0.00</span> • PE <span id="snip1Pe">0.00</span>
+                <span id="snip1Atm">-----</span> CE <span id="snip1Ce">0.00</span> | PE <span id="snip1Pe">0.00</span>
             </div>
             <div class="sniper-sub-text">
                 OTM <span id="snip1OtmCeStr">0</span> CE <span id="snip1OtmCe">0.00</span> | <span id="snip1OtmPeStr">0</span> PE <span id="snip1OtmPe">0.00</span>
@@ -615,7 +616,7 @@
         <div class="sniper-content-wrapper">
             <div class="sniper-tag">SNIPER ATM (HLC MATCH)</div>
             <div class="sniper-text-main">
-                <span id="snip2Atm">-----</span> CE <span id="snip2Ce">0.00</span> • PE <span id="snip2Pe">0.00</span>
+                <span id="snip2Atm">-----</span> CE <span id="snip2Ce">0.00</span> | PE <span id="snip2Pe">0.00</span>
             </div>
             <div class="sniper-sub-text">
                 OTM <span id="snip2OtmCeStr">0</span> CE <span id="snip2OtmCe">0.00</span> | <span id="snip2OtmPeStr">0</span> PE <span id="snip2OtmPe">0.00</span>
@@ -876,7 +877,11 @@
         document.getElementById('earthVal').innerText = (Number(data.earthLevel) || 0).toFixed(2);
     }
 
+    // Initial load
     updateDashboard();
+
+    // Auto-refresh every 5 seconds
+    setInterval(updateDashboard, 5000);
 </script>
 
 </body>
