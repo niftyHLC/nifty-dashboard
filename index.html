@@ -145,7 +145,7 @@
 
         .iv-time-card {
             background: transparent;
-            border: 2px solid #334155;
+            border: 3px solid #334155;
             border-radius: 10px;
             padding: 10px 12px;
             display: flex;
@@ -774,7 +774,6 @@
         peIvContainer.style.color = peIvColor;
         document.getElementById('peIvVal').style.color = peIvColor;
 
-        // Dynamic Time Value Color Styling: >= 100 shows green, otherwise red
         document.getElementById('timeVal').innerText = timeValue.toFixed(2);
         const timeValEl = document.getElementById('timeVal');
         timeValEl.style.color = timeValue >= 100 ? '#22c55e' : '#ef4444';
