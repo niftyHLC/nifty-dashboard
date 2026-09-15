@@ -315,7 +315,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 6px;
         }
 
         .sd-supply-card .sd-header-box {
@@ -350,17 +350,23 @@
         .sd-body {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
             width: 100%;
             text-align: center;
         }
 
         .sd-row {
-            font-size: 0.9rem; /* Updated to 0.9rem */
+            font-size: 0.9rem;
             font-weight: 700;
             display: flex;
             justify-content: space-between;
             padding: 0 4px;
+        }
+
+        .sd-divider {
+            border-top: 2px dashed #eab308;
+            width: 100%;
+            margin: 2px 0;
         }
 
         .sd-label {
@@ -536,6 +542,7 @@
                     <span class="sd-label">MIN</span>
                     <span class="sd-val-red" id="minSupply">0.00</span>
                 </div>
+                <div class="sd-divider"></div>
                 <div class="sd-row">
                     <span class="sd-label">MAX</span>
                     <span class="sd-val-red" id="maxSupply">0.00</span>
@@ -550,6 +557,7 @@
                     <span class="sd-label">MIN</span>
                     <span class="sd-val-green" id="minDemand">0.00</span>
                 </div>
+                <div class="sd-divider"></div>
                 <div class="sd-row">
                     <span class="sd-label">MAX</span>
                     <span class="sd-val-green" id="maxDemand">0.00</span>
