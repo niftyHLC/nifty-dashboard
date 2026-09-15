@@ -1,7 +1,7 @@
 {
     "dataStatus": "SUCCESS",
     "bhavcopyReady": true,
-    "currentDate": "15 SEP 2026",
+    "currentDate": "16 SEP 2026",
     "expiryDate": "2026-09-22",
     "spotPrice": 23118.599609375,
     "hlcAtmStrike": 23200,
@@ -33,11 +33,11 @@
     "peClass": "tag-buyers",
     "bannerTotal": 340.4,
     "asymmetricTimeValue": {
-        "total": 0.0,
-        "ceStrike": 0,
-        "ceLtp": 0.0,
-        "peStrike": 0,
-        "peLtp": 0.0
+        "total": 311.7,
+        "ceStrike": 23150,
+        "ceLtp": 196.3,
+        "peStrike": 23050,
+        "peLtp": 115.4
     },
     "minSupply": 23367.4,
     "minDemand": 23027.0,
