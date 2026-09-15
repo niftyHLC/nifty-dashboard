@@ -569,9 +569,9 @@ if __name__ == "__main__":
         print(f"🛑 Today is a {reason}. Setting bhavcopyReady to False for dashboard notification.")
         spot, spot_high, spot_low = fetch_live_spot_from_yahoo()
         if spot <= 0:
-            spot = 23398.10  # fallback spot
-            spot_high = 23450.0
-            spot_low = 23350.0
+            spot = 23398.10      # Friday Close fallback
+            spot_high = 23448.10 # Friday High fallback
+            spot_low = 23231.40  # Friday Low fallback
         process_and_save_data(spot, spot_high, spot_low, force_not_ready=True)
         exit(0)
 
