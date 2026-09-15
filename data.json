@@ -1,37 +1,37 @@
 {
     "dataStatus": "SUCCESS",
-    "bhavcopyReady": false,
+    "bhavcopyReady": true,
     "currentDate": "15 SEP 2026",
     "expiryDate": "2026-09-22",
     "spotPrice": 23118.599609375,
-    "hlcAtmStrike": 23450,
+    "hlcAtmStrike": 23200,
     "ce": {
-        "high": 211.4,
-        "close": 188.75,
-        "low": 89.0,
+        "high": 381.0,
+        "close": 167.4,
+        "low": 147.3,
         "iv": 0.0,
-        "hc": 22.65,
-        "cl": 99.75,
-        "dominance": "BUYERS",
-        "themeColor": "green",
-        "tagClass": "tag-buyers"
-    },
-    "pe": {
-        "high": 283.7,
-        "close": 174.0,
-        "low": 162.4,
-        "iv": 0.0,
-        "hc": 109.7,
-        "cl": 11.6,
+        "hc": 213.6,
+        "cl": 20.1,
         "dominance": "SELLERS",
         "themeColor": "red",
         "tagClass": "tag-sellers"
     },
-    "ceTag": "BUYERS",
-    "ceClass": "tag-buyers",
-    "peTag": "SELLERS",
-    "peClass": "tag-sellers",
-    "bannerTotal": 362.75,
+    "pe": {
+        "high": 196.8,
+        "close": 173.0,
+        "low": 56.4,
+        "iv": 0.0,
+        "hc": 23.8,
+        "cl": 116.6,
+        "dominance": "BUYERS",
+        "themeColor": "green",
+        "tagClass": "tag-buyers"
+    },
+    "ceTag": "SELLERS",
+    "ceClass": "tag-sellers",
+    "peTag": "BUYERS",
+    "peClass": "tag-buyers",
+    "bannerTotal": 340.4,
     "asymmetricTimeValue": {
         "total": 0.0,
         "ceStrike": 0,
@@ -39,13 +39,13 @@
         "peStrike": 0,
         "peLtp": 0.0
     },
-    "minSupply": 23638.75,
-    "minDemand": 23276.0,
-    "maxSupply": 23812.75,
-    "maxDemand": 23087.25,
+    "minSupply": 23367.4,
+    "minDemand": 23027.0,
+    "maxSupply": 23540.4,
+    "maxDemand": 22859.6,
     "weeklyZones": {
-        "line1": 23603.35,
-        "line2": 22755.4
+        "line1": 23459.1,
+        "line2": 22859.6
     },
     "monthlyZones": {
         "line1": 23100.0,
@@ -57,22 +57,22 @@
     "earthLevel": 123.83,
     "sniper1": {
         "strike": 23100,
-        "ce": 431.2,
-        "pe": 72.15,
+        "ce": 226.8,
+        "pe": 132.3,
         "otmCeStrike": 23200,
         "otmPeStrike": 23000,
-        "otmCe": 352.6,
-        "otmPe": 57.45,
-        "value": 205.03
+        "otmCe": 167.4,
+        "otmPe": 99.9,
+        "value": 133.65
     },
     "sniper2": {
-        "strike": 23450,
-        "ce": 188.75,
-        "pe": 174.0,
-        "otmCeStrike": 23550,
-        "otmPeStrike": 23350,
-        "otmCe": 137.05,
-        "otmPe": 135.45,
-        "value": 136.25
+        "strike": 23200,
+        "ce": 167.4,
+        "pe": 173.0,
+        "otmCeStrike": 23300,
+        "otmPeStrike": 23100,
+        "otmCe": 119.15,
+        "otmPe": 132.3,
+        "value": 125.73
     }
 }
