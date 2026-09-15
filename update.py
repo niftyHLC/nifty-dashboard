@@ -400,9 +400,22 @@ def calculate_zone_row_one(wl, wh, bhav_map):
 
 
 def get_display_date(now_ist):
-    """Calculates the next active trading day, skipping weekends and dynamically fetched market holidays."""
+    """
+    - During trading hours (before 3:30 PM): shows today's active date.
+    - After market hours (after 3:30 PM) or on weekends/holidays: 
+      automatically looks ahead to show the NEXT trading day's date.
+    """
     target = now_ist.date()
     current_year_holidays = get_market_holidays()
+    
+    market_closed = (now_ist.hour > 15) or (now_ist.hour == 15 and now_ist.minute >= 30)
+    is_off_day = target.weekday() >= 5 or target in current_year_holidays
+
+    # If the market is already closed for today, or today is a holiday/weekend,
+    # skip straight to looking for the next active trading day.
+    if market_closed or is_off_day:
+        target += datetime.timedelta(days=1)
+
     while True:
         if target.weekday() >= 5 or target in current_year_holidays:
             target += datetime.timedelta(days=1)
@@ -415,7 +428,7 @@ def get_display_date(now_ist):
 def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     now_ist = datetime.datetime.now(IST)
     
-    # On weekends or holidays, this dynamically points to the next active trading day
+    # Dynamically switches to the next trading day's date after market hours
     today_str = get_display_date(now_ist)
 
     bhavcopy_is_ready = False if force_not_ready else download_today_bhavcopy()
