@@ -138,33 +138,47 @@ def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
     return ce_iv, pe_iv
 
 
-def calculate_asymmetric_time_value(spot_price, target_expiry):
+def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
     """
     Calculates Asymmetric Cross-Strike Time Value:
     - Finds ATM boundary strike closest to spot.
     - Takes CE LTP from 1 strike ABOVE the boundary.
     - Takes PE LTP from 1 strike BELOW the boundary.
+    - Falls back to Bhavcopy dictionary if live NSE data fails.
     """
+    strike_map = {}
+    
+    # 1. Try fetching from live NSE option chain first
     data = fetch_nse_option_chain_data("NIFTY")
-    if not data:
+    if data:
+        try:
+            records = data.get("records", {}).get("data", [])
+            for item in records:
+                strike = float(item.get("strikePrice", 0))
+                expiry = item.get("CE", {}).get("expiryDate") or item.get("PE", {}).get("expiryDate")
+                
+                if expiry and str(expiry).strip().upper() == str(target_expiry).strip().upper():
+                    ce_ltp = float(item.get("CE", {}).get("lastPrice", 0.0)) if "CE" in item else 0.0
+                    pe_ltp = float(item.get("PE", {}).get("lastPrice", 0.0)) if "PE" in item else 0.0
+                    if ce_ltp > 0 or pe_ltp > 0:
+                        strike_map[strike] = {"ce": ce_ltp, "pe": pe_ltp}
+        except Exception as e:
+            print(f"Error parsing live asymmetric time value: {e}")
+
+    # 2. Fallback to Bhavcopy map if live data is empty or market is closed
+    if not strike_map and bhav_map:
+        print("ℹ️ Using Bhavcopy data for Asymmetric Time Value fallback.")
+        all_strikes = set(s for s, t in bhav_map.keys())
+        for strike in all_strikes:
+            ce_close = bhav_map.get((strike, "CE"), {}).get("close", 0.0)
+            pe_close = bhav_map.get((strike, "PE"), {}).get("close", 0.0)
+            if ce_close > 0 or pe_close > 0:
+                strike_map[strike] = {"ce": ce_close, "pe": pe_close}
+
+    if not strike_map:
         return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
 
     try:
-        records = data.get("records", {}).get("data", [])
-        strike_map = {}
-        
-        for item in records:
-            strike = float(item.get("strikePrice", 0))
-            expiry = item.get("CE", {}).get("expiryDate") or item.get("PE", {}).get("expiryDate")
-            
-            if expiry and str(expiry).strip().upper() == str(target_expiry).strip().upper():
-                ce_ltp = float(item.get("CE", {}).get("lastPrice", 0.0)) if "CE" in item else 0.0
-                pe_ltp = float(item.get("PE", {}).get("lastPrice", 0.0)) if "PE" in item else 0.0
-                strike_map[strike] = {"ce": ce_ltp, "pe": pe_ltp}
-
-        if not strike_map:
-            return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
-
         sorted_strikes = sorted(strike_map.keys())
         
         # Find ATM boundary (closest strike to spot price)
@@ -482,8 +496,8 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     if live_pe_iv > 0:
         pe_metrics["iv"] = round(live_pe_iv, 2)
 
-    # Calculate Asymmetric Time Value from live NSE option chain
-    asymmetric_tv_data = calculate_asymmetric_time_value(spot, w_exp)
+    # Calculate Asymmetric Time Value with Bhavcopy fallback support
+    asymmetric_tv_data = calculate_asymmetric_time_value(spot, w_exp, w_bhav)
 
     s1_atm_ce_val = w_bhav.get((sniper1_atm_strike, "CE"), {}).get("close", 0.0)
     s1_atm_pe_val = w_bhav.get((sniper1_atm_strike, "PE"), {}).get("close", 0.0)
