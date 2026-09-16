@@ -1,51 +1,51 @@
 {
     "dataStatus": "SUCCESS",
-    "bhavcopyReady": false,
+    "bhavcopyReady": true,
     "currentDate": "17 SEP 2026",
     "expiryDate": "2026-09-22",
     "spotPrice": 23217.599609375,
-    "hlcAtmStrike": 23200,
+    "hlcAtmStrike": 23250,
     "ce": {
-        "high": 381.0,
-        "close": 167.4,
-        "low": 147.3,
+        "high": 199.0,
+        "close": 149.25,
+        "low": 128.2,
         "iv": 0.0,
-        "hc": 213.6,
-        "cl": 20.1,
+        "hc": 49.75,
+        "cl": 21.05,
         "dominance": "SELLERS",
         "themeColor": "red",
         "tagClass": "tag-sellers"
     },
     "pe": {
-        "high": 196.8,
-        "close": 173.0,
-        "low": 56.4,
+        "high": 210.9,
+        "close": 155.45,
+        "low": 126.25,
         "iv": 0.0,
-        "hc": 23.8,
-        "cl": 116.6,
-        "dominance": "BUYERS",
-        "themeColor": "green",
-        "tagClass": "tag-buyers"
+        "hc": 55.45,
+        "cl": 29.2,
+        "dominance": "SELLERS",
+        "themeColor": "red",
+        "tagClass": "tag-sellers"
     },
     "ceTag": "SELLERS",
     "ceClass": "tag-sellers",
-    "peTag": "BUYERS",
-    "peClass": "tag-buyers",
-    "bannerTotal": 340.4,
+    "peTag": "SELLERS",
+    "peClass": "tag-sellers",
+    "bannerTotal": 304.7,
     "asymmetricTimeValue": {
-        "total": 293.35,
+        "total": 265.05,
         "ceStrike": 23250,
-        "ceLtp": 141.2,
+        "ceLtp": 149.25,
         "peStrike": 23150,
-        "peLtp": 152.15
+        "peLtp": 115.8
     },
-    "minSupply": 23367.4,
-    "minDemand": 23027.0,
-    "maxSupply": 23540.4,
-    "maxDemand": 22859.6,
+    "minSupply": 23399.25,
+    "minDemand": 23094.55,
+    "maxSupply": 23554.7,
+    "maxDemand": 22945.3,
     "weeklyZones": {
-        "line1": 23540.4,
-        "line2": 22957.15
+        "line1": 23511.6,
+        "line2": 22996.6
     },
     "monthlyZones": {
         "line1": 23200.0,
@@ -57,13 +57,22 @@
     "earthLevel": 44.03,
     "sniper1": {
         "strike": 23200,
-        "ce": 167.4,
-        "pe": 173.0,
+        "ce": 177.5,
+        "pe": 134.1,
         "otmCeStrike": 23300,
         "otmPeStrike": 23100,
-        "otmCe": 119.15,
-        "otmPe": 132.3,
-        "value": 125.73
+        "otmCe": 123.6,
+        "otmPe": 99.15,
+        "value": 111.38
     },
-    "sniper2": null
+    "sniper2": {
+        "strike": 23250,
+        "ce": 149.25,
+        "pe": 155.45,
+        "otmCeStrike": 23350,
+        "otmPeStrike": 23150,
+        "otmCe": 100.8,
+        "otmPe": 115.8,
+        "value": 108.3
+    }
 }
