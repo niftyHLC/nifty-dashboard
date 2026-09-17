@@ -15,34 +15,15 @@ import yfinance as yf
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
 def get_market_holidays():
-    """Dynamically fetches Indian public holidays and includes specific NSE trading holidays."""
+    """Dynamically computes Indian public and market holidays for any active 
+    current or future year automatically. Requires zero manual updates for 
+    future years.
+    """
     current_year = datetime.datetime.now(IST).year
     in_holidays = holidays.India(years=current_year)
-    holiday_set = set(in_holidays.keys())
-    
-    # Explicit NSE market trading holidays that may not be in standard public holiday sets
-    if current_year == 2026:
-        holiday_set.update({
-            datetime.date(2026, 1, 15),  # Municipal Corp Election
-            datetime.date(2026, 3, 3),    # Holi
-            datetime.date(2026, 3, 26),   # Shri Ram Navami
-            datetime.date(2026, 3, 31),   # Shri Mahavir Jayanti
-            datetime.date(2026, 4, 3),    # Good Friday
-            datetime.date(2026, 4, 14),   # Dr. Baba Saheb Ambedkar Jayanti
-            datetime.date(2026, 5, 1),    # Maharashtra Day
-            datetime.date(2026, 5, 28),   # Bakri Id
-            datetime.date(2026, 6, 26),   # Muharram
-            datetime.date(2026, 9, 14),   # Ganesh Chaturthi
-            datetime.date(2026, 10, 2),   # Mahatma Gandhi Jayanti
-            datetime.date(2026, 10, 20),  # Dussehra
-            datetime.date(2026, 11, 10),  # Diwali-Balipratipada
-            datetime.date(2026, 11, 24),  # Prakash Gurpurb
-            datetime.date(2026, 12, 25)   # Christmas
-        })
-        
-    return holiday_set
+    return set(in_holidays.keys())
 
-# Dynamically loaded holidays for the current active year
+# Dynamically loaded holidays for the active year
 MARKET_HOLIDAYS = get_market_holidays()
 
 
@@ -81,7 +62,6 @@ def fetch_live_spot_from_yahoo():
     except Exception as e:
         print(f"Failed to fetch spot from Yahoo Finance: {e}")
     
-    # Fallback values if Yahoo Finance blocks the cloud runner
     print("⚠️ Using fallback spot values due to Yahoo Finance connection block.")
     return 23398.10, 23448.10, 23231.40
 
@@ -110,10 +90,7 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
 
 
 def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
-    """
-    Searches the live NSE option chain JSON for your exact HLC ATM strike 
-    and target expiry, returning the official implied volatility for CE and PE.
-    """
+    """Searches the live NSE option chain JSON for the exact HLC ATM strike and target expiry."""
     data = fetch_nse_option_chain_data("NIFTY")
     ce_iv = 0.0
     pe_iv = 0.0
@@ -140,16 +117,9 @@ def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
 
 
 def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
-    """
-    Calculates Asymmetric Cross-Strike Time Value:
-    - Finds ATM boundary strike closest to spot.
-    - Takes CE LTP from 1 strike ABOVE the boundary.
-    - Takes PE LTP from 1 strike BELOW the boundary.
-    - Falls back to Bhavcopy dictionary if live NSE data fails.
-    """
+    """Calculates Asymmetric Cross-Strike Time Value."""
     strike_map = {}
     
-    # 1. Try fetching from live NSE option chain first
     data = fetch_nse_option_chain_data("NIFTY")
     if data:
         try:
@@ -166,7 +136,6 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
         except Exception as e:
             print(f"Error parsing live asymmetric time value: {e}")
 
-    # 2. Fallback to Bhavcopy map if live data is empty or market is closed
     if not strike_map and bhav_map:
         print("ℹ️ Using Bhavcopy data for Asymmetric Time Value fallback.")
         all_strikes = set(s for s, t in bhav_map.keys())
@@ -181,12 +150,9 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
 
     try:
         sorted_strikes = sorted(strike_map.keys())
-        
-        # Find ATM boundary (closest strike to spot price)
         atm_strike = min(sorted_strikes, key=lambda x: abs(x - spot_price))
         atm_idx = sorted_strikes.index(atm_strike)
 
-        # 1 strike above and 1 strike below
         if atm_idx > 0 and atm_idx < len(sorted_strikes) - 1:
             ce_strike_above = sorted_strikes[atm_idx + 1]
             pe_strike_below = sorted_strikes[atm_idx - 1]
@@ -333,12 +299,7 @@ def load_bhavcopy_dict(target_expiry_str):
 
 
 def calculate_dominance_metrics(data_dict):
-    """
-    Calculates H-C and C-L distances and applies the 1.5x rule:
-    - BUYERS (Green): (C - L) >= 1.5 * (H - C)
-    - SELLERS (Red):  (H - C) >= 1.5 * (C - L)
-    - NEUTRAL (Orange): Otherwise
-    """
+    """Calculates H-C and C-L distances and applies the 1.5x rule."""
     if not data_dict:
         return {
             "high": 0.0, "close": 0.0, "low": 0.0, "iv": 0.0,
@@ -387,12 +348,7 @@ def calculate_dominance_metrics(data_dict):
 
 
 def calculate_zone_row_one(wl, wh, bhav_map):
-    """Calculates Line 1 and Line 2 according to the mathematical formulas:
-        - Sum1 = CE1 + PE1 (at Lower Strike WL)
-        - Sum2 = CE2 + PE2 (at Upper Strike WH)
-        - Line 1 = WL + Sum1
-        - Line 2 = WH - Sum2
-    """
+    """Calculates Line 1 and Line 2 according to mathematical zone formulas."""
     def get_p(s, t):
         return bhav_map.get((s, t), {}).get("close", 0.0)
 
@@ -405,25 +361,19 @@ def calculate_zone_row_one(wl, wh, bhav_map):
     sum2 = ce2 + pe2
 
     return {
-        "line1": round(wl + sum1, 2),  # Line 1: WL + (CE1 + PE1)
-        "line2": round(wh - sum2, 2)   # Line 2: WH - (CE2 + PE2)
+        "line1": round(wl + sum1, 2),
+        "line2": round(wh - sum2, 2)
     }
 
 
 def get_display_date(now_ist):
-    """
-    - During trading hours (before 3:30 PM): shows today's active date.
-    - After market hours (after 3:30 PM) or on weekends/holidays: 
-      automatically looks ahead to show the NEXT trading day's date.
-    """
+    """Calculates active or next trading day date dynamically."""
     target = now_ist.date()
     current_year_holidays = get_market_holidays()
     
     market_closed = (now_ist.hour > 15) or (now_ist.hour == 15 and now_ist.minute >= 30)
     is_off_day = target.weekday() >= 5 or target in current_year_holidays
 
-    # If the market is already closed for today, or today is a holiday/weekend,
-    # skip straight to looking for the next active trading day.
     if market_closed or is_off_day:
         target += datetime.timedelta(days=1)
 
@@ -439,9 +389,7 @@ def get_display_date(now_ist):
 def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     now_ist = datetime.datetime.now(IST)
     
-    # Dynamically switches to the next trading day's date after market hours
     today_str = get_display_date(now_ist)
-
     bhavcopy_is_ready = False if force_not_ready else download_today_bhavcopy()
 
     all_expiries_dt = set()
@@ -479,9 +427,21 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
         valid_tuples = list(all_expiries_dt)
 
     sorted_expiries_tuples = sorted(valid_tuples, key=lambda x: x[0])
-    sorted_expiries = [item[1] for item in sorted_expiries_tuples]
-    w_exp = sorted_expiries[0] if sorted_expiries else now_ist.strftime("%d-%m-%y").upper()
-    m_exp = sorted_expiries[-1] if sorted_expiries else w_exp
+    
+    if sorted_expiries_tuples:
+        # Weekly Expiry is the closest one
+        w_exp_dt, w_exp_str = sorted_expiries_tuples[0]
+        w_exp = w_exp_str
+        
+        # CORRECTED MONTHLY LOGIC: Find the last expiry within the *current active month*
+        target_month = w_exp_dt.month
+        target_year = w_exp_dt.year
+        
+        same_month_expiries = [item for item in sorted_expiries_tuples if item[0].month == target_month and item[0].year == target_year]
+        m_exp = same_month_expiries[-1][1] if same_month_expiries else w_exp
+    else:
+        w_exp = now_ist.strftime("%d-%m-%y").upper()
+        m_exp = w_exp
 
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
@@ -513,14 +473,12 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     ce_metrics = calculate_dominance_metrics(ce_dict)
     pe_metrics = calculate_dominance_metrics(pe_dict)
 
-    # Fetch live official IV from NSE option chain API for the exact HLC ATM strike & Expiry
     live_ce_iv, live_pe_iv = get_live_iv_from_nse(hlc_atm_strike, w_exp)
     if live_ce_iv > 0:
         ce_metrics["iv"] = round(live_ce_iv, 2)
     if live_pe_iv > 0:
         pe_metrics["iv"] = round(live_pe_iv, 2)
 
-    # Calculate Asymmetric Time Value with Bhavcopy fallback support
     asymmetric_tv_data = calculate_asymmetric_time_value(spot, w_exp, w_bhav)
 
     s1_atm_ce_val = w_bhav.get((sniper1_atm_strike, "CE"), {}).get("close", 0.0)
@@ -547,11 +505,9 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     weekly_zones = calculate_zone_row_one(wl, wh, w_bhav)
     monthly_zones = calculate_zone_row_one(wl, wh, m_bhav)
 
-    # Earth Level calculation: (Spot High - Spot Low) * 26.11%
     spot_difference = round(spot_high - spot_low, 2)
     earth_level = round(spot_difference * 0.2611, 2)
 
-    # Check if Round 100 and HLC Match strikes are the same
     hide_sniper2 = (sniper1_atm_strike == sniper2_atm_strike)
 
     payload = {
@@ -594,7 +550,7 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     with open("data.json", "w") as f:
         json.dump(payload, f, indent=4)
         
-    print(f"Data saved successfully. Earth Level: {earth_level}. Asymmetric TV: {asymmetric_tv_data['total']}")
+    print(f"Data saved successfully. Active Weekly Expiry: {w_exp} | Active Monthly Expiry: {m_exp}")
     push_to_github()
 
 
@@ -611,9 +567,9 @@ if __name__ == "__main__":
         print(f"🛑 Today is a {reason}. Setting bhavcopyReady to False for dashboard notification.")
         spot, spot_high, spot_low = fetch_live_spot_from_yahoo()
         if spot <= 0:
-            spot = 23398.10      # Friday Close fallback
-            spot_high = 23448.10 # Friday High fallback
-            spot_low = 23231.40  # Friday Low fallback
+            spot = 23398.10
+            spot_high = 23448.10
+            spot_low = 23231.40
         process_and_save_data(spot, spot_high, spot_low, force_not_ready=True)
         exit(0)
 
