@@ -17,7 +17,7 @@ IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 def get_market_holidays():
     """Dynamically computes Indian public and market holidays for any active 
     current or future year automatically. Requires zero manual updates for 
-    future years.
+    2028, 2029, and subsequent years.
     """
     current_year = datetime.datetime.now(IST).year
     in_holidays = holidays.India(years=current_year)
@@ -90,29 +90,60 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
 
 
 def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
-    """Searches the live NSE option chain JSON for the exact HLC ATM strike and target expiry."""
+    """Searches the live NSE option chain JSON with robust date parsing to ensure exact match."""
     data = fetch_nse_option_chain_data("NIFTY")
     ce_iv = 0.0
     pe_iv = 0.0
 
     if not data:
+        print("⚠️ Live NSE option chain data returned None.")
         return ce_iv, pe_iv
+
+    target_dt = None
+    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y"):
+        try:
+            target_dt = datetime.datetime.strptime(str(target_expiry).strip(), fmt)
+            break
+        except ValueError:
+            continue
 
     try:
         records = data.get("records", {}).get("data", [])
         for item in records:
             if float(item.get("strikePrice", 0)) == float(hlc_atm_strike):
                 ce_data = item.get("CE", {})
-                if ce_data and str(ce_data.get("expiryDate", "")).strip().upper() == str(target_expiry).strip().upper():
-                    ce_iv = float(ce_data.get("impliedVolatility", 0.0))
-                
                 pe_data = item.get("PE", {})
-                if pe_data and str(pe_data.get("expiryDate", "")).strip().upper() == str(target_expiry).strip().upper():
-                    pe_iv = float(pe_data.get("impliedVolatility", 0.0))
+                
+                if ce_data:
+                    ce_exp_str = str(ce_data.get("expiryDate", "")).strip()
+                    ce_dt = None
+                    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y"):
+                        try:
+                            ce_dt = datetime.datetime.strptime(ce_exp_str, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    
+                    if (target_dt and ce_dt and target_dt == ce_dt) or (ce_exp_str.upper() == str(target_expiry).upper()):
+                        ce_iv = float(ce_data.get("impliedVolatility", 0.0))
+
+                if pe_data:
+                    pe_exp_str = str(pe_data.get("expiryDate", "")).strip()
+                    pe_dt = None
+                    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y"):
+                        try:
+                            pe_dt = datetime.datetime.strptime(pe_exp_str, fmt)
+                            break
+                        except ValueError:
+                            continue
+                            
+                    if (target_dt and pe_dt and target_dt == pe_dt) or (pe_exp_str.upper() == str(target_expiry).upper()):
+                        pe_iv = float(pe_data.get("impliedVolatility", 0.0))
                 break
     except Exception as e:
         print(f"Error parsing live IV from NSE data: {e}")
 
+    print(f"🔍 Live IV Lookup for Strike {hlc_atm_strike} -> CE IV: {ce_iv}, PE IV: {pe_iv}")
     return ce_iv, pe_iv
 
 
@@ -429,11 +460,9 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     sorted_expiries_tuples = sorted(valid_tuples, key=lambda x: x[0])
     
     if sorted_expiries_tuples:
-        # Weekly Expiry is the closest one
         w_exp_dt, w_exp_str = sorted_expiries_tuples[0]
         w_exp = w_exp_str
         
-        # CORRECTED MONTHLY LOGIC: Find the last expiry within the *current active month*
         target_month = w_exp_dt.month
         target_year = w_exp_dt.year
         
