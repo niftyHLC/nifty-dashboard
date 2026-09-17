@@ -5,6 +5,7 @@ import json
 import math
 import os
 import subprocess
+import time
 import zipfile
 import holidays
 import requests
@@ -207,8 +208,8 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
     return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
 
 
-def download_today_bhavcopy():
-    """Downloads official Bhavcopy directly from NSE archives."""
+def download_today_bhavcopy(max_retries=5, delay_seconds=60):
+    """Downloads official Bhavcopy directly from NSE archives with built-in retry-and-sleep loop."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
@@ -220,37 +221,47 @@ def download_today_bhavcopy():
     dd = now_ist.strftime("%d")
     
     url = f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{yyyy}{mm}{dd}_F_0000.csv.zip"
-    try:
-        response = requests.get(url, headers=headers, timeout=30)
-        
-        if response.status_code == 200 and len(response.content) > 1000:
-            if os.path.exists("bhavcopy.csv"):
-                try: 
-                    os.remove("bhavcopy.csv")
-                except Exception: 
-                    pass
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"⏳ Attempt {attempt}/{max_retries}: Checking/Downloading Bhavcopy for {now_ist.strftime('%Y-%m-%d')}...")
+            response = requests.get(url, headers=headers, timeout=30)
+            
+            if response.status_code == 200 and len(response.content) > 1000:
+                if os.path.exists("bhavcopy.csv"):
+                    try: 
+                        os.remove("bhavcopy.csv")
+                    except Exception: 
+                        pass
 
-            with zipfile.ZipFile(io.BytesIO(response.content)) as z:
-                csv_filename = z.namelist()[0]
-                with z.open(csv_filename) as csv_file:
-                    content = csv_file.read().decode('utf-8', errors='ignore')
-                    lines = content.splitlines()
-                    
-                    nifty_lines = []
-                    if lines:
-                        nifty_lines.append(lines[0])
-                        for line in lines[1:]:
-                            if "NIFTY" in line.upper():
-                                nifty_lines.append(line)
-                    
-                    with open("bhavcopy.csv", "w", encoding="utf-8") as f:
-                        f.write("\n".join(nifty_lines))
+                with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+                    csv_filename = z.namelist()[0]
+                    with z.open(csv_filename) as csv_file:
+                        content = csv_file.read().decode('utf-8', errors='ignore')
+                        lines = content.splitlines()
+                        
+                        nifty_lines = []
+                        if lines:
+                            nifty_lines.append(lines[0])
+                            for line in lines[1:]:
+                                if "NIFTY" in line.upper():
+                                    nifty_lines.append(line)
+                        
+                        with open("bhavcopy.csv", "w", encoding="utf-8") as f:
+                            f.write("\n".join(nifty_lines))
 
-            print(f"Successfully downloaded TODAY'S Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
-            return True
-    except Exception as e:
-        print(f"Notice: Could not download bhavcopy: {e}")
+                print(f"Successfully downloaded TODAY'S Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
+                return True
+            else:
+                print(f"⚠️ Server returned status {response.status_code}. File not ready yet.")
+        except Exception as e:
+            print(f"⚠️ Notice: Could not download bhavcopy on attempt {attempt}: {e}")
         
+        if attempt < max_retries:
+            print(f"Sleeping for {delay_seconds} seconds before retrying...")
+            time.sleep(delay_seconds)
+            
+    print("ℹ️ Max retries reached for Bhavcopy. Proceeding with fallback...")
     return False
 
 
