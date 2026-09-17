@@ -1,19 +1,18 @@
-name: Update Dashboard Data
+name: Daily Bhavcopy Update
 
 on:
   schedule:
-    # Runs at 3:40 PM IST (10:10 AM UTC), Monday to Friday
-    - cron: '10 10 * * 1-5'
+    # Runs every 15 minutes from 3:30 PM to 10:00 PM IST, Monday to Friday
+    - cron: '0,15,30,45 10 * * 1-5'     # 3:30 PM to 4:15 PM IST
+    - cron: '0,15,30,45 11-15 * * 1-5'  # 4:30 PM to 9:15 PM IST
+    - cron: '0,15,30 16 * * 1-5'        # 9:30 PM to 10:00 PM IST
     
-    # Runs every 15 minutes from 5:00 PM to 9:00 PM IST (11:30 AM to 3:30 PM UTC), Monday to Friday
-    - cron: '*/15 11-15 * * 1-5'
-
   workflow_dispatch:
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
-
+    
     permissions:
       contents: write
 
@@ -24,20 +23,22 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
           cache: 'pip'
 
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install requests yfinance holidays
 
-      - name: Fetch Market Data and Update JSON
-        run: python update.py
+      - name: Run update script
+        run: |
+          python update.py
 
-      - name: Commit and Push Updated Data
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chrono: automated data update [skip ci]"
-          file_pattern: "data.json"
-          commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+      - name: Check for changes and push
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json bhavcopy.csv || true
+          git diff --quiet && git diff --cached --quiet || git commit -m "Automated data update [skip ci]"
+          git push
