@@ -139,6 +139,55 @@
             font-weight: 700;
         }
 
+        /* 5 HIGH CARD STYLES */
+        .five-high-card {
+            background: transparent;
+            border: 3px solid #38bdf8;
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .five-high-header {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #38bdf8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        .five-high-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            text-align: center;
+        }
+
+        .five-high-item {
+            background: rgba(56, 189, 248, 0.05);
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 6px 2px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .five-high-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+
+        .five-high-val {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #38bdf8;
+        }
+
         .grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -525,6 +574,33 @@
         </div>
     </div>
 
+    <!-- 5 HIGH CARD SECTION -->
+    <div class="five-high-card" id="fiveHighCard">
+        <div class="five-high-header">5 HIGH VALUES (BEFORE CALC)</div>
+        <div class="five-high-grid">
+            <div class="five-high-item">
+                <span class="five-high-label">H1</span>
+                <span class="five-high-val" id="high1">0.00</span>
+            </div>
+            <div class="five-high-item">
+                <span class="five-high-label">H2</span>
+                <span class="five-high-val" id="high2">0.00</span>
+            </div>
+            <div class="five-high-item">
+                <span class="five-high-label">H3</span>
+                <span class="five-high-val" id="high3">0.00</span>
+            </div>
+            <div class="five-high-item">
+                <span class="five-high-label">H4</span>
+                <span class="five-high-val" id="high4">0.00</span>
+            </div>
+            <div class="five-high-item">
+                <span class="five-high-label">H5</span>
+                <span class="five-high-val" id="high5">0.00</span>
+            </div>
+        </div>
+    </div>
+
     <div class="grid-2">
         <div class="card" id="ceCard">
             <div class="card-tag-container">
@@ -603,7 +679,6 @@
         </div>
     </div>
 
-    <!-- NEW SELLERS AREAS CARD -->
     <div class="sellers-area-card" id="sellersAreaCard">
         <div class="sellers-area-header">SELLERS AREAS</div>
         <div class="sellers-area-body">
@@ -804,6 +879,20 @@
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
         document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
 
+        // Render 5 High Values (supports array format data.fiveHighs or individual keys like high1..high5)
+        let highs = Array.isArray(data.fiveHighs) ? data.fiveHighs : [
+            data.high1 || data.h1 || 0,
+            data.high2 || data.h2 || 0,
+            data.high3 || data.h3 || 0,
+            data.high4 || data.h4 || 0,
+            data.high5 || data.h5 || 0
+        ];
+        for (let i = 0; i < 5; i++) {
+            let val = Number(highs[i]) || 0;
+            const el = document.getElementById(`high${i+1}`);
+            if (el) el.innerText = val.toFixed(2);
+        }
+
         document.getElementById('bannerTotal').innerText = cePeDiff.toFixed(2);
         document.getElementById('ceCloseHeader').innerText = ceClose.toFixed(2);
         document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
@@ -867,7 +956,6 @@
         document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-        // Updating Sellers Areas Data (Supports property names like sellersCeArea, sellersPeArea, or nested variations)
         const sellersCe = Number(data.sellersCeArea ?? data.sellersCe ?? data.ceSellersArea) || 0;
         const sellersPe = Number(data.sellersPeArea ?? data.sellersPe ?? data.peSellersArea) || 0;
         document.getElementById('sellersCeArea').innerText = sellersCe.toFixed(2);
