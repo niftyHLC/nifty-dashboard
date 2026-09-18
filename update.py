@@ -205,6 +205,50 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
     return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
 
 
+def get_valid_highs(candles, max_count=5):
+    """Identifies unbroken swing highs to map out the Sellers Area / Resistance levels."""
+    valid_highs = []
+    
+    # ഓരോ കാൻഡിലിന്റെയും ഹൈ പരിശോധിക്കുന്നു
+    for i, current in enumerate(candles):
+        high_val = current['high']
+        is_broken = False
+        
+        # ഈ ഹൈ ലെവലിനെ പിന്നീട് വരുന്ന ഏതെങ്കിലും കാൻഡിൽ മുകളിലേക്ക് മുറിച്ചു കടന്നിട്ടുണ്ടോ എന്ന് നോക്കുന്നു
+        for future_candle in candles[i+1:]:
+            if future_candle['high'] > high_val:
+                is_broken = True
+                break
+        
+        # ബ്രേക്ക് ഔട്ട് ആവാത്തവ മാത്രം (Not Broken) ലിസ്റ്റിലേക്ക് എടുക്കുന്നു
+        if not is_broken:
+            valid_highs.append(high_val)
+            
+        if len(valid_highs) >= max_count:
+            break
+            
+    return valid_highs
+
+
+def fetch_intraday_candles_for_sellers_area():
+    """Fetches recent intraday candles from Yahoo Finance to pass into get_valid_highs."""
+    try:
+        ticker = yf.Ticker("^NSEI")
+        df = ticker.history(period="5d", interval="15m")
+        if not df.empty:
+            candles = []
+            for _, row in df.iterrows():
+                candles.append({
+                    "high": float(row["High"]),
+                    "low": float(row["Low"]),
+                    "close": float(row["Close"])
+                })
+            return candles
+    except Exception as e:
+        print(f"⚠️ Could not fetch intraday candles for valid highs: {e}")
+    return []
+
+
 def download_today_bhavcopy(max_retries=5, delay_seconds=60):
     """Downloads official Bhavcopy directly from NSE archives with built-in retry-and-sleep loop."""
     headers = {
@@ -528,6 +572,10 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     max_supply_val = round(hlc_atm_strike + (ce_metrics["close"] + pe_metrics["close"]), 2)
     max_demand_val = round(hlc_atm_strike - (ce_metrics["close"] + pe_metrics["close"]), 2)
 
+    # Fetch candles and extract valid unbroken highs for Sellers Area
+    intraday_candles = fetch_intraday_candles_for_sellers_area()
+    dynamic_sellers_highs = get_valid_highs(intraday_candles, max_count=5)
+
     wl = int(math.floor(spot / 100.0) * 100) if spot > 0 else 23300
     wh = int(math.ceil(spot / 100.0) * 100) if spot > 0 else 23400
 
@@ -558,6 +606,15 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
         "minDemand": min_demand_val,
         "maxSupply": max_supply_val,
         "maxDemand": max_demand_val,
+        "sellersArea": {
+            "min": min_supply_val,
+            "max": max_supply_val,
+            "validUnbrokenHighs": dynamic_sellers_highs
+        },
+        "buyersArea": {
+            "min": min_demand_val,
+            "max": max_demand_val
+        },
         "weeklyZones": weekly_zones,
         "monthlyZones": monthly_zones,
         "spotHigh": spot_high,
