@@ -820,7 +820,7 @@
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
         document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
 
-        // Render 5 High Values
+        // Render 5 High Values safely
         let highs = Array.isArray(data.fiveHighs) ? data.fiveHighs : [
             data.high1 || data.h1 || 0,
             data.high2 || data.h2 || 0,
