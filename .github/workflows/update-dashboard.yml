@@ -1,12 +1,8 @@
 name: Daily Bhavcopy Update
 
 on:
-  schedule:
-    # Runs every 15 minutes from 3:30 PM to 10:00 PM IST, Monday to Friday
-    - cron: '0,15,30,45 10 * * 1-5'      # 3:30 PM to 4:15 PM IST
-    - cron: '0,15,30,45 11-15 * * 1-5'    # 4:30 PM to 9:15 PM IST
-    - cron: '0,15,30 16 * * 1-5'          # 9:30 PM to 10:00 PM IST
-    
+  repository_dispatch:
+    types: [run-dashboard-update]
   workflow_dispatch:
 
 jobs:
