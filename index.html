@@ -453,7 +453,6 @@
             margin-top: 2px;
         }
 
-        /* White color applied specifically to pipe separators inside sniper text */
         .sniper-text-main span.pipe,
         .sniper-sub-text span.pipe {
             color: #ffffff !important;
@@ -641,6 +640,65 @@
 </div>
 
 <script>
+    // Embedded live dataset provided
+    const liveData = {
+      "bhavcopyReady": true,
+      "spotPrice": 22450.50,
+      "hlcAtmStrike": 22450,
+      "currentDate": "2026-06-06",
+      "expiryDate": "2026-06-11",
+      "ce": {
+        "high": 145.20,
+        "close": 120.50,
+        "low": 95.10,
+        "iv": 14.25
+      },
+      "pe": {
+        "high": 138.80,
+        "close": 112.30,
+        "low": 88.40,
+        "iv": 15.10
+      },
+      "ceTag": "BUYERS ACTIVE",
+      "ceClass": "tag-buyers",
+      "peTag": "SELLERS ACTIVE",
+      "peClass": "tag-sellers",
+      "minSupply": 22600.00,
+      "maxSupply": 22800.00,
+      "minDemand": 22200.00,
+      "maxDemand": 22400.00,
+      "weeklyZones": {
+        "high": 22750.00,
+        "low": 22150.00
+      },
+      "monthlyZones": {
+        "high": 23100.00,
+        "low": 21800.00
+      },
+      "timeValue": 232.80,
+      "sniper1": {
+        "strike": 22500,
+        "ce": 105.40,
+        "pe": 98.20,
+        "otmCeStrike": 22600,
+        "otmPeStrike": 22400,
+        "otmCe": 75.20,
+        "otmPe": 68.50,
+        "value": 347.30
+      },
+      "sniper2": {
+        "strike": 22450,
+        "ce": 120.50,
+        "pe": 112.30,
+        "otmCeStrike": 22550,
+        "otmPeStrike": 22350,
+        "otmCe": 88.10,
+        "otmPe": 81.40,
+        "value": 402.30
+      },
+      "earthLevel": 22350.00
+    };
+
     function formatDateToDDMMYYYY(dateString) {
         if (!dateString) return '-- -- ----';
         
@@ -728,9 +786,16 @@
 
     async function updateDashboard() {
         try {
-            const response = await fetch(`data.json?t=${Date.now()}`);
-            if (!response.ok) return;
-            const data = await response.json();
+            // Tries fetching external data.json if hosted, falls back to embedded liveData
+            let data = liveData;
+            try {
+                const response = await fetch(`data.json?t=${Date.now()}`);
+                if (response.ok) {
+                    data = await response.json();
+                }
+            } catch (err) {
+                // Use embedded liveData fallback gracefully
+            }
             renderDashboard(data);
         } catch (e) {
             console.error("Error loading dashboard data:", e);
@@ -889,7 +954,7 @@
     // Initial load
     updateDashboard();
 
-    // Auto-refresh every 5 seconds
+    // Auto-refresh interval
     setInterval(updateDashboard, 5000);
 </script>
 
