@@ -206,22 +206,22 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
 
 
 def get_valid_highs(candles, max_count=5):
-    """Identifies unbroken swing highs to map out the Sellers Area / Resistance levels."""
+    """Identifies unique unbroken swing highs to map out the Sellers Area / Resistance levels."""
     valid_highs = []
     
-    # ഓരോ കാൻഡിലിന്റെയും ഹൈ പരിശോധിക്കുന്നു
+    if not candles:
+        return valid_highs
+    
     for i, current in enumerate(candles):
         high_val = current['high']
         is_broken = False
         
-        # ഈ ഹൈ ലെവലിനെ പിന്നീട് വരുന്ന ഏതെങ്കിലും കാൻഡിൽ മുകളിലേക്ക് മുറിച്ചു കടന്നിട്ടുണ്ടോ എന്ന് നോക്കുന്നു
         for future_candle in candles[i+1:]:
             if future_candle['high'] > high_val:
                 is_broken = True
                 break
         
-        # ബ്രേക്ക് ഔട്ട് ആവാത്തവ മാത്രം (Not Broken) ലിസ്റ്റിലേക്ക് എടുക്കുന്നു
-        if not is_broken:
+        if not is_broken and high_val not in valid_highs:
             valid_highs.append(high_val)
             
         if len(valid_highs) >= max_count:
