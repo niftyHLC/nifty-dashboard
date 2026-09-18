@@ -7,499 +7,66 @@
     <link rel="manifest" href="manifest.json">
     <title>NIFTY Live Dashboard</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            text-shadow: none !important;
-            box-shadow: none !important;
-        }
-
-        h1, h2, h3, h4, h5, h6, p, span, div, a, button {
-            text-shadow: none !important;
-            box-shadow: none !important;
-        }
-
-        body {
-            background-color: #030712;
-            color: #f3f4f6;
-            display: flex;
-            justify-content: center;
-            padding: 10px 4px 50px 4px;
-        }
-
-        .dashboard {
-            width: 100%;
-            max-width: 420px;
-            background: #090d16;
-            border: 3px solid #334155;
-            border-radius: 16px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            position: relative;
-        }
-
-        .warning-banner {
-            display: none;
-            color: #ffffff;
-            text-align: center;
-            font-weight: 800;
-            font-size: 0.85rem;
-            padding: 10px;
-            border-radius: 8px;
-            letter-spacing: 0.5px;
-            transition: background-color 0.3s ease;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 4px;
-        }
-
-        .spot-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #ffffff;
-        }
-
-        .spot-price {
-            font-size: 1.25rem;
-            color: #ffffff;
-            margin-left: 8px;
-            font-weight: 800;
-        }
-
-        .badge-exp-container {
-            display: flex;
-            align-items: center;
-            gap: 2px;
-        }
-
-        .badge-exp-label {
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #ffffff;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .badge-exp {
-            background: transparent;
-            color: #ffffff;
-            font-size: 0.7rem;
-            font-weight: 700;
-            padding: 0;
-            border-radius: 0;
-        }
-
-        .sub-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: transparent;
-            padding: 10px 12px;
-            border-radius: 8px;
-            border: 3px solid #334155;
-        }
-
-        .date-box {
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #ffffff;
-            background: transparent;
-            padding: 0;
-            border-radius: 0;
-            display: inline-block;
-            letter-spacing: 0.5px;
-        }
-
-        .atm-box {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #ffffff;
-            margin-top: 4px;
-        }
-
-        .straddle-total {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #ffffff;
-            text-align: right;
-        }
-
-        .straddle-sub {
-            font-size: 0.7rem;
-            color: #ffffff;
-            font-weight: 700;
-        }
-
-        /* 5 HIGH CARD STYLES */
-        .five-high-card {
-            background: transparent;
-            border: 3px solid #38bdf8;
-            border-radius: 10px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .five-high-header {
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #38bdf8;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            text-align: center;
-        }
-
-        .five-high-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 4px;
-            text-align: center;
-        }
-
-        .five-high-item {
-            background: rgba(56, 189, 248, 0.05);
-            border: 1px solid #334155;
-            border-radius: 6px;
-            padding: 6px 2px;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .five-high-label {
-            font-size: 0.6rem;
-            font-weight: 700;
-            color: #94a3b8;
-        }
-
-        .five-high-val {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: #38bdf8;
-        }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-
-        .iv-time-card {
-            background: transparent;
-            border: 3px solid #334155;
-            border-radius: 10px;
-            padding: 10px 12px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .iv-time-title {
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #ffffff;
-            text-align: center;
-            margin-bottom: 6px;
-            letter-spacing: 0.5px;
-        }
-
-        .iv-split-row {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 6px;
-            padding-top: 2px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: #ffffff;
-            white-space: nowrap;
-        }
-
-        .iv-split-row span {
-            color: inherit;
-        }
-
-        .time-val-display {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: #ffffff;
-            text-align: center;
-            margin: auto 0;
-        }
-
-        .card {
-            background: transparent;
-            border: 2px solid #334155;
-            border-radius: 10px;
-            padding: 10px;
-            transition: all 0.3s ease;
-        }
-
-        .card.card-buyers {
-            border-color: #22c55e;
-            background: transparent;
-        }
-        .card.card-buyers .strike-header span,
-        .card.card-buyers .hcl-label,
-        .card.card-buyers .hcl-val,
-        .card.card-buyers .diff-footer span {
-            color: #22c55e !important;
-        }
-
-        .card.card-sellers {
-            border-color: #ef4444;
-            background: transparent;
-        }
-        .card.card-sellers .strike-header span,
-        .card.card-sellers .hcl-label,
-        .card.card-sellers .hcl-val,
-        .card.card-sellers .diff-footer span {
-            color: #ef4444 !important;
-        }
-
-        .card.card-neutral {
-            border-color: #eab308;
-            background: transparent;
-        }
-        .card.card-neutral .strike-header span,
-        .card.card-neutral .hcl-label,
-        .card.card-neutral .hcl-val,
-        .card.card-neutral .diff-footer span {
-            color: #eab308 !important;
-        }
-
-        .card-tag-container {
-            text-align: center;
-            margin-bottom: 8px;
-        }
-
-        .card-tag {
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 4px;
-            display: inline-block;
-        }
-
-        .tag-neutral {
-            background: rgba(234, 179, 8, 0.15);
-            color: #eab308;
-            border: 1px solid #eab308;
-        }
-
-        .tag-buyers {
-            background: rgba(34, 197, 94, 0.15);
-            color: #22c55e;
-            border: 1px solid #22c55e;
-        }
-
-        .tag-sellers {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-            border: 1px solid #ef4444;
-        }
-
-        .strike-header {
-            display: flex;
-            justify-content: space-between;
-            font-weight: 700;
-            font-size: 1rem;
-            margin-bottom: 8px;
-        }
-
-        .card-content-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .candle-graphic {
-            width: 32px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .hcl-box {
-            font-size: 0.8rem;
-            color: #94a3b8;
-            line-height: 1.4;
-            text-align: right;
-        }
-
-        .hcl-label {
-            color: inherit;
-            font-weight: 700;
-        }
-
-        .hcl-val {
-            color: #f8fafc;
-            font-weight: 700;
-        }
-
-        .diff-footer {
-            margin-top: 8px;
-            padding-top: 6px;
-            border-top: 1px dashed #475569;
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.65rem;
-            color: #94a3b8;
-            font-weight: 700;
-        }
-
-        .sd-main-card {
-            background: transparent;
-            border: 3px solid #334155;
-            border-radius: 10px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .sd-supply-card .sd-header-box {
-            border: none;
-            color: #ffffff !important;
-        }
-        .sd-supply-card .sd-label,
-        .sd-supply-card .sd-val-red {
-            color: #ef4444 !important;
-        }
-
-        .sd-demand-card .sd-header-box {
-            border: none;
-            color: #ffffff !important;
-        }
-        .sd-demand-card .sd-label,
-        .sd-demand-card .sd-val-green {
-            color: #22c55e !important;
-        }
-
-        .sd-header-box {
-            background: transparent;
-            padding: 3px 12px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #ffffff;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            text-align: center;
-        }
-
-        .sd-body {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            width: 100%;
-            text-align: center;
-        }
-
-        .sd-row {
-            font-size: 0.9rem;
-            font-weight: 700;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 4px;
-        }
-
-        .sd-divider {
-            border-top: 1px dashed #475569;
-            width: 100%;
-            margin: 2px 0;
-        }
-
-        .sd-label {
-            color: inherit;
-        }
-
-        .sd-val-red {
-            color: #ef4444;
-        }
-
-        .sd-val-green {
-            color: #22c55e;
-        }
-
-        .sniper-card {
-            background: transparent;
-            border: 3px solid #334155;
-            border-radius: 10px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            gap: 4px;
-        }
-
-        .sniper-content-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-        }
-
-        .sniper-tag {
-            background: transparent;
-            color: #ffffff;
-            border: none;
-            font-size: 0.7rem;
-            font-weight: 700;
-            padding: 0;
-            border-radius: 0;
-            display: inline-block;
-            margin-bottom: 4px;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
-
-        .sniper-text-main {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: #38bdf8;
-        }
-
-        .sniper-sub-text {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: #38bdf8;
-            margin-top: 2px;
-        }
-
-        .sniper-val {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: #38bdf8;
-            margin-top: 2px;
-        }
-
-        .sniper-text-main span.pipe,
-        .sniper-sub-text span.pipe {
-            color: #ffffff !important;
-        }
-
-        .earth-card {
-            background: transparent;
-            border: 2px solid #38bdf8;
-            border-radius: 10px;
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-shadow: none !important; box-shadow: none !important; }
+        body { background-color: #030712; color: #f3f4f6; display: flex; justify-content: center; padding: 10px 4px 50px; }
+        .dashboard { width: 100%; max-width: 420px; background: #090d16; border: 3px solid #334155; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .warning-banner { display: none; color: #fff; text-align: center; font-weight: 800; font-size: 0.85rem; padding: 10px; border-radius: 8px; }
+        .header, .sub-header, .card-content-row, .diff-footer, .sd-row, .earth-card { display: flex; justify-content: space-between; align-items: center; }
+        .spot-title { font-size: 1.8rem; font-weight: 700; color: #fff; }
+        .spot-price { font-size: 1.25rem; color: #fff; margin-left: 8px; font-weight: 800; }
+        .badge-exp-container { display: flex; align-items: center; }
+        .badge-exp-label, .badge-exp, .date-box, .sniper-tag { font-size: 0.7rem; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+        .sub-header { padding: 10px 12px; border-radius: 8px; border: 3px solid #334155; }
+        .date-box { display: inline-block; }
+        .atm-box { font-size: 0.95rem; font-weight: 700; color: #fff; margin-top: 4px; }
+        .straddle-total { font-size: 1.1rem; font-weight: 700; color: #fff; text-align: right; }
+        .straddle-sub { font-size: 0.7rem; color: #fff; font-weight: 700; }
+        .five-high-card, .iv-time-card, .sd-main-card, .sniper-card { border: 3px solid #334155; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+        .five-high-card { border-color: #38bdf8; }
+        .five-high-header, .iv-time-title, .sd-header-box { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; }
+        .five-high-header { color: #38bdf8; }
+        .five-high-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; text-align: center; }
+        .five-high-item { background: rgba(56, 189, 248, 0.05); border: 1px solid #334155; border-radius: 6px; padding: 6px 2px; display: flex; flex-direction: column; gap: 2px; }
+        .five-high-label { font-size: 0.6rem; font-weight: 700; color: #94a3b8; }
+        .five-high-val { font-size: 0.8rem; font-weight: 700; color: #38bdf8; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .iv-time-card { padding: 10px 12px; justify-content: space-between; }
+        .iv-time-title { color: #fff; margin-bottom: 6px; }
+        .iv-split-row { display: flex; justify-content: center; align-items: center; gap: 6px; padding-top: 2px; font-size: 0.8rem; font-weight: 700; color: #fff; white-space: nowrap; }
+        .time-val-display { font-size: 0.8rem; font-weight: 700; color: #fff; text-align: center; margin: auto 0; }
+        .card { border: 2px solid #334155; border-radius: 10px; padding: 10px; }
+        .card.card-buyers { border-color: #22c55e; }
+        .card.card-buyers .strike-header span, .card.card-buyers .hcl-label, .card.card-buyers .hcl-val, .card.card-buyers .diff-footer span { color: #22c55e !important; }
+        .card.card-sellers { border-color: #ef4444; }
+        .card.card-sellers .strike-header span, .card.card-sellers .hcl-label, .card.card-sellers .hcl-val, .card.card-sellers .diff-footer span { color: #ef4444 !important; }
+        .card.card-neutral { border-color: #eab308; }
+        .card.card-neutral .strike-header span, .card.card-neutral .hcl-label, .card.card-neutral .hcl-val, .card.card-neutral .diff-footer span { color: #eab308 !important; }
+        .card-tag-container { text-align: center; margin-bottom: 8px; }
+        .card-tag { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; display: inline-block; }
+        .tag-neutral { background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid #eab308; }
+        .tag-buyers { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e; }
+        .tag-sellers { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444; }
+        .strike-header { display: flex; justify-content: space-between; font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
+        .candle-graphic { width: 32px; height: 60px; display: flex; align-items: center; justify-content: center; }
+        .hcl-box { font-size: 0.8rem; color: #94a3b8; line-height: 1.4; text-align: right; }
+        .hcl-label { font-weight: 700; }
+        .hcl-val { color: #f8fafc; font-weight: 700; }
+        .diff-footer { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #475569; font-size: 0.65rem; color: #94a3b8; font-weight: 700; }
+        .sd-supply-card .sd-label, .sd-supply-card .sd-val-red { color: #ef4444 !important; }
+        .sd-demand-card .sd-label, .sd-demand-card .sd-val-green { color: #22c55e !important; }
+        .sd-header-box { color: #fff; }
+        .sd-body { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: center; }
+        .sd-row { font-size: 0.9rem; font-weight: 700; padding: 0 4px; }
+        .sd-divider { border-top: 1px dashed #475569; width: 100%; margin: 2px 0; }
+        .sd-val-red { color: #ef4444; }
+        .sd-val-green { color: #22c55e; }
+        .sniper-card { align-items: center; text-align: center; gap: 4px; }
+        .sniper-content-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; }
+        .sniper-text-main, .sniper-sub-text { font-size: 0.8rem; font-weight: 700; color: #38bdf8; }
+        .sniper-sub-text { margin-top: 2px; }
+        .sniper-val { font-size: 1.4rem; font-weight: 700; color: #38bdf8; margin-top: 2px; }
+        .sniper-text-main span.pipe, .sniper-sub-text span.pipe { color: #fff !important; }
+        .earth-card { border: 2px solid #38bdf8; border-radius: 10px; padding: 10px; }
     </style>
 </head>
 <body>
@@ -531,13 +98,8 @@
 
     <div class="grid-2">
         <div class="card" id="ceCard">
-            <div class="card-tag-container">
-                <div id="ceTag" class="card-tag tag-neutral">NEUTRAL</div>
-            </div>
-            <div class="strike-header">
-                <span id="ceStrike">-----</span>
-                <span style="font-size: 0.85rem; font-weight: 700;">CE</span>
-            </div>
+            <div class="card-tag-container"><div id="ceTag" class="card-tag tag-neutral">NEUTRAL</div></div>
+            <div class="strike-header"><span id="ceStrike">-----</span><span style="font-size: 0.85rem; font-weight: 700;">CE</span></div>
             <div class="card-content-row">
                 <div class="candle-graphic" id="ceCandleGraphic"></div>
                 <div class="hcl-box">
@@ -546,20 +108,12 @@
                     <div><span class="hcl-label">L -</span> <span class="hcl-val" id="ceLow">0.00</span></div>
                 </div>
             </div>
-            <div class="diff-footer">
-                <span>H-C <span id="ceHC">0.00</span></span>
-                <span>C-L <span id="ceCL">0.00</span></span>
-            </div>
+            <div class="diff-footer"><span>H-C <span id="ceHC">0.00</span></span><span>C-L <span id="ceCL">0.00</span></span></div>
         </div>
 
         <div class="card" id="peCard">
-            <div class="card-tag-container">
-                <div id="peTag" class="card-tag tag-neutral">NEUTRAL</div>
-            </div>
-            <div class="strike-header">
-                <span id="peStrike">-----</span>
-                <span style="font-size: 0.85rem; font-weight: 700;">PE</span>
-            </div>
+            <div class="card-tag-container"><div id="peTag" class="card-tag tag-neutral">NEUTRAL</div></div>
+            <div class="strike-header"><span id="peStrike">-----</span><span style="font-size: 0.85rem; font-weight: 700;">PE</span></div>
             <div class="card-content-row">
                 <div class="candle-graphic" id="peCandleGraphic"></div>
                 <div class="hcl-box">
@@ -568,10 +122,7 @@
                     <div><span class="hcl-label">L -</span> <span class="hcl-val" id="peLow">0.00</span></div>
                 </div>
             </div>
-            <div class="diff-footer">
-                <span>H-C <span id="peHC">0.00</span></span>
-                <span>C-L <span id="peCL">0.00</span></span>
-            </div>
+            <div class="diff-footer"><span>H-C <span id="peHC">0.00</span></span><span>C-L <span id="peCL">0.00</span></span></div>
         </div>
     </div>
 
@@ -579,30 +130,18 @@
         <div class="sd-main-card sd-supply-card">
             <div class="sd-header-box">SUPPLY</div>
             <div class="sd-body">
-                <div class="sd-row">
-                    <span class="sd-label">MIN</span>
-                    <span class="sd-val-red" id="minSupply">0.00</span>
-                </div>
+                <div class="sd-row"><span class="sd-label">MIN</span><span class="sd-val-red" id="minSupply">0.00</span></div>
                 <div class="sd-divider"></div>
-                <div class="sd-row">
-                    <span class="sd-label">MAX</span>
-                    <span class="sd-val-red" id="maxSupply">0.00</span>
-                </div>
+                <div class="sd-row"><span class="sd-label">MAX</span><span class="sd-val-red" id="maxSupply">0.00</span></div>
             </div>
         </div>
 
         <div class="sd-main-card sd-demand-card">
             <div class="sd-header-box">DEMAND</div>
             <div class="sd-body">
-                <div class="sd-row">
-                    <span class="sd-label">MIN</span>
-                    <span class="sd-val-green" id="minDemand">0.00</span>
-                </div>
+                <div class="sd-row"><span class="sd-label">MIN</span><span class="sd-val-green" id="minDemand">0.00</span></div>
                 <div class="sd-divider"></div>
-                <div class="sd-row">
-                    <span class="sd-label">MAX</span>
-                    <span class="sd-val-green" id="maxDemand">0.00</span>
-                </div>
+                <div class="sd-row"><span class="sd-label">MAX</span><span class="sd-val-green" id="maxDemand">0.00</span></div>
             </div>
         </div>
     </div>
@@ -616,49 +155,28 @@
                 <div id="peIvContainer">PE - <span id="peIvVal">0.00</span></div>
             </div>
         </div>
-
         <div class="iv-time-card">
             <div class="iv-time-title">TIME VALUE</div>
             <div class="time-val-display" id="timeVal">0.00</div>
         </div>
     </div>
 
-    <!-- 5 HIGH CARD SECTION -->
     <div class="five-high-card" id="fiveHighCard">
         <div class="five-high-header">5 HIGH VALUES (BEFORE CALC)</div>
         <div class="five-high-grid">
-            <div class="five-high-item">
-                <span class="five-high-label">H1</span>
-                <span class="five-high-val" id="high1">0.00</span>
-            </div>
-            <div class="five-high-item">
-                <span class="five-high-label">H2</span>
-                <span class="five-high-val" id="high2">0.00</span>
-            </div>
-            <div class="five-high-item">
-                <span class="five-high-label">H3</span>
-                <span class="five-high-val" id="high3">0.00</span>
-            </div>
-            <div class="five-high-item">
-                <span class="five-high-label">H4</span>
-                <span class="five-high-val" id="high4">0.00</span>
-            </div>
-            <div class="five-high-item">
-                <span class="five-high-label">H5</span>
-                <span class="five-high-val" id="high5">0.00</span>
-            </div>
+            <div class="five-high-item"><span class="five-high-label">H1</span><span class="five-high-val" id="high1">0.00</span></div>
+            <div class="five-high-item"><span class="five-high-label">H2</span><span class="five-high-val" id="high2">0.00</span></div>
+            <div class="five-high-item"><span class="five-high-label">H3</span><span class="five-high-val" id="high3">0.00</span></div>
+            <div class="five-high-item"><span class="five-high-label">H4</span><span class="five-high-val" id="high4">0.00</span></div>
+            <div class="five-high-item"><span class="five-high-label">H5</span><span class="five-high-val" id="high5">0.00</span></div>
         </div>
     </div>
 
     <div class="sniper-card">
         <div class="sniper-content-wrapper">
             <div class="sniper-tag">SNIPER ATM (ROUND 100)</div>
-            <div class="sniper-text-main">
-                <span id="snip1Atm">-----</span> CE <span id="snip1Ce">0.00</span> <span class="pipe">|</span> PE <span id="snip1Pe">0.00</span>
-            </div>
-            <div class="sniper-sub-text">
-                OTM <span id="snip1OtmCeStr">0</span> CE <span id="snip1OtmCe">0.00</span> <span class="pipe">|</span> <span id="snip1OtmPeStr">0</span> PE <span id="snip1OtmPe">0.00</span>
-            </div>
+            <div class="sniper-text-main"><span id="snip1Atm">-----</span> CE <span id="snip1Ce">0.00</span> <span class="pipe">|</span> PE <span id="snip1Pe">0.00</span></div>
+            <div class="sniper-sub-text">OTM <span id="snip1OtmCeStr">0</span> CE <span id="snip1OtmCe">0.00</span> <span class="pipe">|</span> <span id="snip1OtmPeStr">0</span> PE <span id="snip1OtmPe">0.00</span></div>
         </div>
         <div class="sniper-val" id="snip1Val">0.00</div>
     </div>
@@ -666,12 +184,8 @@
     <div class="sniper-card" id="sniper2Card">
         <div class="sniper-content-wrapper">
             <div class="sniper-tag">SNIPER ATM (HLC MATCH)</div>
-            <div class="sniper-text-main">
-                <span id="snip2Atm">-----</span> CE <span id="snip2Ce">0.00</span> <span class="pipe">|</span> PE <span id="snip2Pe">0.00</span>
-            </div>
-            <div class="sniper-sub-text">
-                OTM <span id="snip2OtmCeStr">0</span> CE <span id="snip2OtmCe">0.00</span> <span class="pipe">|</span> <span id="snip2OtmPeStr">0</span> PE <span id="snip2OtmPe">0.00</span>
-            </div>
+            <div class="sniper-text-main"><span id="snip2Atm">-----</span> CE <span id="snip2Ce">0.00</span> <span class="pipe">|</span> PE <span id="snip2Pe">0.00</span></div>
+            <div class="sniper-sub-text">OTM <span id="snip2OtmCeStr">0</span> CE <span id="snip2OtmCe">0.00</span> <span class="pipe">|</span> <span id="snip2OtmPeStr">0</span> PE <span id="snip2OtmPe">0.00</span></div>
         </div>
         <div class="sniper-val" id="snip2Val">0.00</div>
     </div>
@@ -685,153 +199,74 @@
 <script>
     function formatDateToDDMMYYYY(dateString) {
         if (!dateString) return '-- -- ----';
-        
         const parsedDate = new Date(dateString);
         if (!isNaN(parsedDate.getTime())) {
-            const day = String(parsedDate.getDate()).padStart(2, '0');
-            const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
-            const year = parsedDate.getFullYear();
-            return `${day}-${month}-${year}`;
+            return `${String(parsedDate.getDate()).padStart(2, '0')}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}-${parsedDate.getFullYear()}`;
         }
-        
-        const months = {
-            'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
-            'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
-        };
-        
-        let cleanStr = dateString.toLowerCase().trim();
-        let parts = cleanStr.split(/[\s-/]+/);
+        const months = { 'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06', 'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12' };
+        let parts = dateString.toLowerCase().trim().split(/[\s-/]+/);
         if (parts.length === 3) {
             let day = parts[0].padStart(2, '0');
-            let month = parts[1];
-            let year = parts[2];
-            
-            if (months[month]) {
-                month = months[month];
-            } else if (months[month.substring(0,3)]) {
-                month = months[month.substring(0,3)];
-            }
-            month = String(month).padStart(2, '0');
-            if (year.length === 2) year = '20' + year;
-            
-            if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-                return `${day}-${month}-${year}`;
-            }
+            let month = months[parts[1]] || months[parts[1].substring(0,3)] || '01';
+            let year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+            return `${day}-${month.padStart(2, '0')}-${year}`;
         }
-        
         return dateString;
     }
 
     function calculateAtmIv(spot, strike, optionPrice, currentDateStr, expiryDateStr) {
         if (!spot || !strike || !optionPrice || optionPrice <= 0) return 0;
-        
-        let curr = new Date(currentDateStr);
-        let exp = new Date(expiryDateStr);
+        let curr = new Date(currentDateStr), exp = new Date(expiryDateStr);
         if (isNaN(curr.getTime())) curr = new Date();
-        if (isNaN(exp.getTime())) exp = new Date(curr.getTime() + 7 * 24 * 60 * 60 * 1000);
-        
-        let diffTime = exp.getTime() - curr.getTime();
-        let diffDays = diffTime / (1000 * 3600 * 24);
-        if (diffDays <= 0) diffDays = 1;
-        let T = diffDays / 365.0;
-
+        if (isNaN(exp.getTime())) exp = new Date(curr.getTime() + 604800000);
+        let T = Math.max((exp.getTime() - curr.getTime()) / 86400000, 1) / 365.0;
         let iv = (optionPrice / spot) * Math.sqrt(2 * Math.PI / T) * 100;
-        
-        if (iv < 1.0) iv = 1.0;
-        if (iv > 250.0) iv = 250.0;
-        
-        return iv;
+        return Math.min(Math.max(iv, 1.0), 250.0);
     }
 
     function getCandleSvg(type) {
-        if (type === 'tag-buyers') {
-            return `
-            <svg width="30" height="60" viewBox="0 0 30 60">
-                <line x1="15" y1="4" x2="15" y2="18" stroke="#22c55e" stroke-width="2"/>
-                <line x1="15" y1="42" x2="15" y2="56" stroke="#22c55e" stroke-width="2"/>
-                <rect x="10" y="18" width="10" height="24" fill="#22c55e" rx="2"/>
-            </svg>`;
-        } else if (type === 'tag-sellers') {
-            return `
-            <svg width="30" height="60" viewBox="0 0 30 60">
-                <line x1="15" y1="4" x2="15" y2="22" stroke="#ef4444" stroke-width="2"/>
-                <line x1="15" y1="46" x2="15" y2="56" stroke="#ef4444" stroke-width="2"/>
-                <rect x="10" y="22" width="10" height="24" fill="#ef4444" rx="2"/>
-            </svg>`;
-        } else {
-            return `
-            <svg width="30" height="60" viewBox="0 0 30 60">
-                <line x1="15" y1="8" x2="15" y2="22" stroke="#eab308" stroke-width="2"/>
-                <line x1="15" y1="38" x2="15" y2="52" stroke="#eab308" stroke-width="2"/>
-                <rect x="10" y="22" width="10" height="16" fill="#eab308" rx="2"/>
-            </svg>`;
-        }
+        if (type === 'tag-buyers') return `<svg width="30" height="60" viewBox="0 0 30 60"><line x1="15" y1="4" x2="15" y2="18" stroke="#22c55e" stroke-width="2"/><line x1="15" y1="42" x2="15" y2="56" stroke="#22c55e" stroke-width="2"/><rect x="10" y="18" width="10" height="24" fill="#22c55e" rx="2"/></svg>`;
+        if (type === 'tag-sellers') return `<svg width="30" height="60" viewBox="0 0 30 60"><line x1="15" y1="4" x2="15" y2="22" stroke="#ef4444" stroke-width="2"/><line x1="15" y1="46" x2="15" y2="56" stroke="#ef4444" stroke-width="2"/><rect x="10" y="22" width="10" height="24" fill="#ef4444" rx="2"/></svg>`;
+        return `<svg width="30" height="60" viewBox="0 0 30 60"><line x1="15" y1="8" x2="15" y2="22" stroke="#eab308" stroke-width="2"/><line x1="15" y1="38" x2="15" y2="52" stroke="#eab308" stroke-width="2"/><rect x="10" y="22" width="10" height="16" fill="#eab308" rx="2"/></svg>`;
     }
 
     async function updateDashboard() {
         try {
-            const response = await fetch(`data.json?t=${Date.now()}`);
-            if (!response.ok) return;
-            const data = await response.json();
-            renderDashboard(data);
-        } catch (e) {
-            console.error("Error loading dashboard data:", e);
-        }
+            const res = await fetch(`data.json?t=${Date.now()}`);
+            if (res.ok) renderDashboard(await res.json());
+        } catch (e) { console.error(e); }
     }
 
     function renderDashboard(data) {
         if (!data) return;
         const alertBanner = document.getElementById('bhavcopyAlert');
-
         if (data.bhavcopyReady === false) {
             alertBanner.innerText = '⚠️ Data Not Ready Yet , Please Wait';
             alertBanner.style.backgroundColor = '#dc2626';
             alertBanner.style.display = 'block';
         } else {
-            alertBanner.innerText = '';
             alertBanner.style.display = 'none';
         }
 
-        const spotPrice = Number(data.spotPrice) || 0;
-        const hlcAtmStrike = Number(data.hlcAtmStrike) || spotPrice;
-        const ceClose = Number(data.ce?.close) || 0;
-        const ceHigh = Number(data.ce?.high) || 0;
-        const ceLow = Number(data.ce?.low) || 0;
-
-        const peClose = Number(data.pe?.close) || 0;
-        const peHigh = Number(data.pe?.high) || 0;
-        const peLow = Number(data.pe?.low) || 0;
-
-        const timeValue = Number(data.timeValue ?? data.asymmetricTimeValue?.total) || 0;
+        const spot = Number(data.spotPrice) || 0;
+        const strike = Number(data.hlcAtmStrike) || spot;
+        const ceClose = Number(data.ce?.close) || 0, ceHigh = Number(data.ce?.high) || 0, ceLow = Number(data.ce?.low) || 0;
+        const peClose = Number(data.pe?.close) || 0, peHigh = Number(data.pe?.high) || 0, peLow = Number(data.pe?.low) || 0;
+        const timeVal = Number(data.timeValue ?? data.asymmetricTimeValue?.total) || 0;
         const cePeDiff = Math.abs(ceClose - peClose);
 
-        let ceIv = Number(data.ce?.iv);
-        if (isNaN(ceIv) || ceIv <= 0) {
-            ceIv = calculateAtmIv(spotPrice, hlcAtmStrike, ceClose, data.currentDate, data.expiryDate);
-        }
+        let ceIv = Number(data.ce?.iv) || calculateAtmIv(spot, strike, ceClose, data.currentDate, data.expiryDate);
+        let peIv = Number(data.pe?.iv) || calculateAtmIv(spot, strike, peClose, data.currentDate, data.expiryDate);
 
-        let peIv = Number(data.pe?.iv);
-        if (isNaN(peIv) || peIv <= 0) {
-            peIv = calculateAtmIv(spotPrice, hlcAtmStrike, peClose, data.currentDate, data.expiryDate);
-        }
-
-        document.getElementById('spotPrice').innerText = spotPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('spotPrice').innerText = spot.toLocaleString('en-IN', {minimumFractionDigits: 2});
         document.getElementById('currentDate').innerText = formatDateToDDMMYYYY(data.currentDate);
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
         document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
 
-        // Render 5 High Values safely
-        let highs = Array.isArray(data.fiveHighs) ? data.fiveHighs : [
-            data.high1 || data.h1 || 0,
-            data.high2 || data.h2 || 0,
-            data.high3 || data.h3 || 0,
-            data.high4 || data.h4 || 0,
-            data.high5 || data.h5 || 0
-        ];
+        let highs = Array.isArray(data.fiveHighs) ? data.fiveHighs : [data.high1||0, data.high2||0, data.high3||0, data.high4||0, data.high5||0];
         for (let i = 0; i < 5; i++) {
-            let val = Number(highs[i]) || 0;
             const el = document.getElementById(`high${i+1}`);
-            if (el) el.innerText = val.toFixed(2);
+            if (el) el.innerText = (Number(highs[i]) || 0).toFixed(2);
         }
 
         document.getElementById('bannerTotal').innerText = cePeDiff.toFixed(2);
@@ -839,101 +274,54 @@
         document.getElementById('peCloseHeader').innerText = peClose.toFixed(2);
 
         document.getElementById('ceIvVal').innerText = ceIv.toFixed(2);
-        const ceIvContainer = document.getElementById('ceIvContainer');
-        const ceIvColor = ceIv >= 10 ? '#22c55e' : '#ef4444';
-        ceIvContainer.style.color = ceIvColor;
-        document.getElementById('ceIvVal').style.color = ceIvColor;
-
+        document.getElementById('ceIvContainer').style.color = document.getElementById('ceIvVal').style.color = ceIv >= 10 ? '#22c55e' : '#ef4444';
         document.getElementById('peIvVal').innerText = peIv.toFixed(2);
-        const peIvContainer = document.getElementById('peIvContainer');
-        const peIvColor = peIv >= 10 ? '#22c55e' : '#ef4444';
-        peIvContainer.style.color = peIvColor;
-        document.getElementById('peIvVal').style.color = peIvColor;
+        document.getElementById('peIvContainer').style.color = document.getElementById('peIvVal').style.color = peIv >= 10 ? '#22c55e' : '#ef4444';
 
-        document.getElementById('timeVal').innerText = timeValue.toFixed(2);
-        const timeValEl = document.getElementById('timeVal');
-        timeValEl.style.color = timeValue >= 100 ? '#22c55e' : '#ef4444';
+        document.getElementById('timeVal').innerText = timeVal.toFixed(2);
+        document.getElementById('timeVal').style.color = timeVal >= 100 ? '#22c55e' : '#ef4444';
 
-        const ceTagEl = document.getElementById('ceTag');
-        const ceCardEl = document.getElementById('ceCard');
-        ceTagEl.innerText = data.ceTag || 'NEUTRAL';
-        ceTagEl.className = `card-tag ${data.ceClass || 'tag-neutral'}`;
+        const setCardDataPrefix = (prefix, tag, cls, h, c, l, str) => {
+            document.getElementById(`${prefix}Tag`).innerText = tag || 'NEUTRAL';
+            document.getElementById(`${prefix}Tag`).className = `card-tag ${cls || 'tag-neutral'}`;
+            const card = document.getElementById(`${prefix}Card`);
+            card.className = `card ${cls || 'card-neutral'}`;
+            document.getElementById(`${prefix}CandleGraphic`).innerHTML = getCandleSvg(cls);
+            document.getElementById(`${prefix}Strike`).innerText = str || '-----';
+            document.getElementById(`${prefix}High`).innerText = h.toFixed(2);
+            document.getElementById(`${prefix}Close`).innerText = c.toFixed(2);
+            document.getElementById(`${prefix}Low`).innerText = l.toFixed(2);
+            document.getElementById(`${prefix}HC`).innerText = (h - c).toFixed(2);
+            document.getElementById(`${prefix}CL`).innerText = (c - l).toFixed(2);
+        };
 
-        ceCardEl.className = 'card';
-        if (data.ceClass === 'tag-buyers') ceCardEl.classList.add('card-buyers');
-        else if (data.ceClass === 'tag-sellers') ceCardEl.classList.add('card-sellers');
-        else ceCardEl.classList.add('card-neutral');
+        setCardDataPrefix('ce', data.ceTag, data.ceClass, ceHigh, ceClose, ceLow, data.hlcAtmStrike);
+        setCardDataPrefix('pe', data.peTag, data.peClass, peHigh, peClose, peLow, data.hlcAtmStrike);
 
-        document.getElementById('ceCandleGraphic').innerHTML = getCandleSvg(data.ceClass);
+        document.getElementById('minSupply').innerText = (Number(data.minSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
+        document.getElementById('minDemand').innerText = (Number(data.minDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
+        document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
+        document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
 
-        document.getElementById('ceStrike').innerText = data.hlcAtmStrike || '-----';
-        document.getElementById('ceHigh').innerText = ceHigh.toFixed(2);
-        document.getElementById('ceClose').innerText = ceClose.toFixed(2);
-        document.getElementById('ceLow').innerText = ceLow.toFixed(2);
-        document.getElementById('ceHC').innerText = (ceHigh - ceClose).toFixed(2);
-        document.getElementById('ceCL').innerText = (ceClose - ceLow).toFixed(2);
+        const setSniper = (id, sObj) => {
+            if (!sObj) return;
+            document.getElementById(`snip${id}Atm`).innerText = sObj.strike || '-----';
+            document.getElementById(`snip${id}Ce`).innerText = (Number(sObj.ce) || 0).toFixed(2);
+            document.getElementById(`snip${id}Pe`).innerText = (Number(sObj.pe) || 0).toFixed(2);
+            document.getElementById(`snip${id}OtmCeStr`).innerText = sObj.otmCeStrike || 0;
+            document.getElementById(`snip${id}OtmPeStr`).innerText = sObj.otmPeStrike || 0;
+            document.getElementById(`snip${id}OtmCe`).innerText = (Number(sObj.otmCe) || 0).toFixed(2);
+            document.getElementById(`snip${id}OtmPe`).innerText = (Number(sObj.otmPe) || 0).toFixed(2);
+            document.getElementById(`snip${id}Val`).innerText = (Number(sObj.value) || 0).toFixed(2);
+        };
 
-        const peTagEl = document.getElementById('peTag');
-        const peCardEl = document.getElementById('peCard');
-        peTagEl.innerText = data.peTag || 'NEUTRAL';
-        peTagEl.className = `card-tag ${data.peClass || 'tag-neutral'}`;
+        setSniper(1, data.sniper1);
+        const s2Card = document.getElementById('sniper2Card');
+        if (data.sniper2) { s2Card.style.display = 'flex'; setSniper(2, data.sniper2); } else { s2Card.style.display = 'none'; }
 
-        peCardEl.className = 'card';
-        if (data.peClass === 'tag-buyers') peCardEl.classList.add('card-buyers');
-        else if (data.peClass === 'tag-sellers') peCardEl.classList.add('card-sellers');
-        else peCardEl.classList.add('card-neutral');
-
-        document.getElementById('peCandleGraphic').innerHTML = getCandleSvg(data.peClass);
-
-        document.getElementById('peStrike').innerText = data.hlcAtmStrike || '-----';
-        document.getElementById('peHigh').innerText = peHigh.toFixed(2);
-        document.getElementById('peClose').innerText = peClose.toFixed(2);
-        document.getElementById('peLow').innerText = peLow.toFixed(2);
-        document.getElementById('peHC').innerText = (peHigh - peClose).toFixed(2);
-        document.getElementById('peCL').innerText = (peClose - peLow).toFixed(2);
-
-        document.getElementById('minSupply').innerText = (Number(data.minSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('minDemand').innerText = (Number(data.minDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-
-        if (data.sniper1) {
-            const s1Ce = Number(data.sniper1.ce) || 0;
-            const s1Pe = Number(data.sniper1.pe) || 0;
-            document.getElementById('snip1Atm').innerText = data.sniper1.strike || '-----';
-            document.getElementById('snip1Ce').innerText = s1Ce.toFixed(2);
-            document.getElementById('snip1Pe').innerText = s1Pe.toFixed(2);
-            document.getElementById('snip1OtmCeStr').innerText = data.sniper1.otmCeStrike || 0;
-            document.getElementById('snip1OtmPeStr').innerText = data.sniper1.otmPeStrike || 0;
-            document.getElementById('snip1OtmCe').innerText = (Number(data.sniper1.otmCe) || 0).toFixed(2);
-            document.getElementById('snip1OtmPe').innerText = (Number(data.sniper1.otmPe) || 0).toFixed(2);
-            
-            document.getElementById('snip1Val').innerText = (Number(data.sniper1.value) || 0).toFixed(2);
-        }
-
-        const sniper2CardEl = document.getElementById('sniper2Card');
-        if (data.sniper2) {
-            sniper2CardEl.style.display = 'flex';
-            const s2Ce = Number(data.sniper2.ce) || 0;
-            const s2Pe = Number(data.sniper2.pe) || 0;
-            document.getElementById('snip2Atm').innerText = data.sniper2.strike || '-----';
-            document.getElementById('snip2Ce').innerText = s2Ce.toFixed(2);
-            document.getElementById('snip2Pe').innerText = s2Pe.toFixed(2);
-            document.getElementById('snip2OtmCeStr').innerText = data.sniper2.otmCeStrike || 0;
-            document.getElementById('snip2OtmPeStr').innerText = data.sniper2.otmPeStrike || 0;
-            document.getElementById('snip2OtmCe').innerText = (Number(data.sniper2.otmCe) || 0).toFixed(2);
-            document.getElementById('snip2OtmPe').innerText = (Number(data.sniper2.otmPe) || 0).toFixed(2);
-            document.getElementById('snip2Val').innerText = (Number(data.sniper2.value) || 0).toFixed(2);
-        } else {
-            sniper2CardEl.style.display = 'none';
-        }
-
-        if (data.earth !== undefined) {
-            document.getElementById('earthVal').innerText = (Number(data.earth) || 0).toFixed(2);
-        }
+        document.getElementById('earthVal').innerText = (Number(data.earth) || 0).toFixed(2);
     }
 
-    // Initial load and setup auto-refresh every 5 seconds
     updateDashboard();
     setInterval(updateDashboard, 5000);
 </script>
