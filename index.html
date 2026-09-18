@@ -433,51 +433,6 @@
             color: #22c55e;
         }
 
-        .sellers-area-card {
-            background: transparent;
-            border: 3px solid #ef4444;
-            border-radius: 10px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .sellers-area-header {
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #ef4444;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            text-align: center;
-        }
-
-        .sellers-area-body {
-            display: flex;
-            justify-content: space-around;
-            width: 100%;
-            text-align: center;
-        }
-
-        .sellers-area-item {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .sellers-area-label {
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #94a3b8;
-        }
-
-        .sellers-area-val {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #ef4444;
-        }
-
         .sniper-card {
             background: transparent;
             border: 3px solid #334155;
@@ -574,33 +529,6 @@
         </div>
     </div>
 
-    <!-- 5 HIGH CARD SECTION -->
-    <div class="five-high-card" id="fiveHighCard">
-        <div class="five-high-header">5 HIGH VALUES (BEFORE CALC)</div>
-        <div class="five-high-grid">
-            <div class="five-high-item">
-                <span class="five-high-label">H1</span>
-                <span class="five-high-val" id="high1">0.00</span>
-            </div>
-            <div class="five-high-item">
-                <span class="five-high-label">H2</span>
-                <span class="five-high-val" id="high2">0.00</span>
-            </div>
-            <div class="five-high-item">
-                <span class="five-high-label">H3</span>
-                <span class="five-high-val" id="high3">0.00</span>
-            </div>
-            <div class="five-high-item">
-                <span class="five-high-label">H4</span>
-                <span class="five-high-val" id="high4">0.00</span>
-            </div>
-            <div class="five-high-item">
-                <span class="five-high-label">H5</span>
-                <span class="five-high-val" id="high5">0.00</span>
-            </div>
-        </div>
-    </div>
-
     <div class="grid-2">
         <div class="card" id="ceCard">
             <div class="card-tag-container">
@@ -679,20 +607,6 @@
         </div>
     </div>
 
-    <div class="sellers-area-card" id="sellersAreaCard">
-        <div class="sellers-area-header">SELLERS AREAS</div>
-        <div class="sellers-area-body">
-            <div class="sellers-area-item">
-                <span class="sellers-area-label">CE AREA</span>
-                <span class="sellers-area-val" id="sellersCeArea">0.00</span>
-            </div>
-            <div class="sellers-area-item">
-                <span class="sellers-area-label">PE AREA</span>
-                <span class="sellers-area-val" id="sellersPeArea">0.00</span>
-            </div>
-        </div>
-    </div>
-
     <div class="grid-2">
         <div class="iv-time-card">
             <div class="iv-time-title">IMPLIED VOLATILITY</div>
@@ -706,6 +620,33 @@
         <div class="iv-time-card">
             <div class="iv-time-title">TIME VALUE</div>
             <div class="time-val-display" id="timeVal">0.00</div>
+        </div>
+    </div>
+
+    <!-- 5 HIGH CARD SECTION -->
+    <div class="five-high-card" id="fiveHighCard">
+        <div class="five-high-header">5 HIGH VALUES (BEFORE CALC)</div>
+        <div class="five-high-grid">
+            <div class="five-high-item">
+                <span class="five-high-label">H1</span>
+                <span class="five-high-val" id="high1">0.00</span>
+            </div>
+            <div class="five-high-item">
+                <span class="five-high-label">H2</span>
+                <span class="five-high-val" id="high2">0.00</span>
+            </div>
+            <div class="five-high-item">
+                <span class="five-high-label">H3</span>
+                <span class="five-high-val" id="high3">0.00</span>
+            </div>
+            <div class="five-high-item">
+                <span class="five-high-label">H4</span>
+                <span class="five-high-val" id="high4">0.00</span>
+            </div>
+            <div class="five-high-item">
+                <span class="five-high-label">H5</span>
+                <span class="five-high-val" id="high5">0.00</span>
+            </div>
         </div>
     </div>
 
@@ -879,7 +820,6 @@
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
         document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
 
-        // Render 5 High Values (supports array format data.fiveHighs or individual keys like high1..high5)
         let highs = Array.isArray(data.fiveHighs) ? data.fiveHighs : [
             data.high1 || data.h1 || 0,
             data.high2 || data.h2 || 0,
@@ -955,11 +895,6 @@
         document.getElementById('minDemand').innerText = (Number(data.minDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-
-        const sellersCe = Number(data.sellersCeArea ?? data.sellersCe ?? data.ceSellersArea) || 0;
-        const sellersPe = Number(data.sellersPeArea ?? data.sellersPe ?? data.peSellersArea) || 0;
-        document.getElementById('sellersCeArea').innerText = sellersCe.toFixed(2);
-        document.getElementById('sellersPeArea').innerText = sellersPe.toFixed(2);
 
         if (data.sniper1) {
             const s1Ce = Number(data.sniper1.ce) || 0;
