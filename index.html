@@ -9,24 +9,24 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-shadow: none !important; box-shadow: none !important; }
         body { background-color: #030712; color: #f3f4f6; display: flex; justify-content: center; padding: 10px 4px 50px; }
-        .dashboard { width: 100%; max-width: 420px; background: #090d16; border: 2px solid #334155; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .dashboard { width: 100%; max-width: 420px; background: #090d16; border: 3px solid #334155; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
         .warning-banner { display: none; color: #fff; text-align: center; font-weight: 800; font-size: 0.85rem; padding: 10px; border-radius: 8px; }
         .header, .sub-header, .card-content-row, .diff-footer, .sd-row, .earth-card { display: flex; justify-content: space-between; align-items: center; }
         .spot-title { font-size: 1.8rem; font-weight: 700; color: #fff; }
         .spot-price { font-size: 1.25rem; color: #fff; margin-left: 8px; font-weight: 800; }
         .badge-exp-container { display: flex; align-items: center; }
         .badge-exp-label, .badge-exp, .date-box, .sniper-tag { font-size: 0.7rem; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
-        .sub-header { padding: 10px 12px; border-radius: 8px; border: 2px solid #334155; }
+        .sub-header { padding: 10px 12px; border-radius: 8px; border: 3px solid #334155; }
         .date-box { display: inline-block; }
         .atm-box { font-size: 0.95rem; font-weight: 700; color: #fff; margin-top: 4px; }
         .straddle-total { font-size: 1.1rem; font-weight: 700; color: #fff; text-align: right; }
         .straddle-sub { font-size: 0.7rem; color: #fff; font-weight: 700; }
-        .five-high-card, .iv-time-card, .sd-main-card, .sniper-card { border: 2px solid #334155; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+        .five-high-card, .iv-time-card, .sd-main-card, .sniper-card { border: 3px solid #334155; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
         .five-high-card { border-color: #38bdf8; }
         .five-high-header, .iv-time-title, .sd-header-box { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; }
         .five-high-header { color: #38bdf8; }
         .five-high-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; text-align: center; }
-        .five-high-item { background: rgba(56, 189, 248, 0.05); border: 2px solid #334155; border-radius: 6px; padding: 6px 2px; display: flex; flex-direction: column; gap: 2px; }
+        .five-high-item { background: rgba(56, 189, 248, 0.05); border: 3px solid #334155; border-radius: 6px; padding: 6px 2px; display: flex; flex-direction: column; gap: 2px; }
         .five-high-label { font-size: 0.6rem; font-weight: 700; color: #94a3b8; }
         .five-high-val { font-size: 0.8rem; font-weight: 700; color: #38bdf8; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -35,8 +35,8 @@
         .iv-split-row { display: flex; justify-content: center; align-items: center; gap: 6px; padding-top: 2px; font-size: 0.8rem; font-weight: 700; color: #fff; white-space: nowrap; }
         .time-val-display { font-size: 0.8rem; font-weight: 700; color: #fff; text-align: center; margin: auto 0; }
         
-        /* Card Dynamic Theming (Transparent background, colored text & 2px borders) */
-        .card { border: 2px solid #334155; border-radius: 10px; padding: 10px; background: transparent !important; }
+        /* Card Dynamic Theming (Transparent background, colored text & 3px borders) */
+        .card { border: 3px solid #334155; border-radius: 10px; padding: 10px; background: transparent !important; }
         .card.card-buyers { border-color: #22c55e; }
         .card.card-buyers *, .card.card-buyers .hcl-val { color: #22c55e !important; }
         .card.card-sellers { border-color: #ef4444; }
@@ -46,9 +46,9 @@
 
         .card-tag-container { text-align: center; margin-bottom: 8px; }
         .card-tag { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; display: inline-block; background: transparent !important; }
-        .tag-neutral { color: #eab308 !important; border: 2px solid #eab308; }
-        .tag-buyers { color: #22c55e !important; border: 2px solid #22c55e; }
-        .tag-sellers { color: #ef4444 !important; border: 2px solid #ef4444; }
+        .tag-neutral { color: #eab308 !important; border: 3px solid #eab308; }
+        .tag-buyers { color: #22c55e !important; border: 3px solid #22c55e; }
+        .tag-sellers { color: #ef4444 !important; border: 3px solid #ef4444; }
         
         .strike-header { display: flex; justify-content: space-between; font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
         .candle-graphic { width: 32px; height: 60px; display: flex; align-items: center; justify-content: center; }
@@ -65,13 +65,13 @@
         .sd-divider { border-top: 1px dashed #475569; width: 100%; margin: 2px 0; }
         .sd-val-red { color: #ef4444; }
         .sd-val-green { color: #22c55e; }
-        .sniper-card { border: 2px solid #334155; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; }
+        .sniper-card { border: 3px solid #334155; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; }
         .sniper-content-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; }
         .sniper-text-main, .sniper-sub-text { font-size: 0.8rem; font-weight: 700; color: #38bdf8; }
         .sniper-sub-text { margin-top: 2px; }
         .sniper-val { font-size: 1.4rem; font-weight: 700; color: #38bdf8; margin-top: 2px; }
         .sniper-text-main span.pipe, .sniper-sub-text span.pipe { color: #fff !important; }
-        .earth-card { border: 2px solid #38bdf8; border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .earth-card { border: 3px solid #38bdf8; border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
