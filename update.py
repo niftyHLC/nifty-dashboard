@@ -15,15 +15,11 @@ import yfinance as yf
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
 def get_market_holidays():
-    """Dynamically computes Indian public and market holidays for any active 
-    current or future year automatically. Requires zero manual updates for 
-    2028, 2029, and subsequent years.
-    """
+    """Dynamically computes Indian public and market holidays automatically."""
     current_year = datetime.datetime.now(IST).year
     in_holidays = holidays.India(years=current_year)
     return set(in_holidays.keys())
 
-# Dynamically loaded holidays for the active year
 MARKET_HOLIDAYS = get_market_holidays()
 
 
@@ -39,13 +35,13 @@ def push_to_github():
         diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
         
         if diff_check.returncode != 0:
-            subprocess.run(["git", "commit", "-m", "Auto-update weekend/holiday status [skip ci]"], check=True)
+            subprocess.run(["git", "commit", "-m", "Auto-update weekend/holiday/IV status [skip ci]"], check=True)
             subprocess.run(["git", "push", "origin", "main"], check=True)
             print("Changes pushed to GitHub successfully.")
         else:
             print("No changes detected in repository. Skipping commit.")
     except Exception as e:
-        print(f"Test/Git push failed: {e}")
+        print(f"Git push failed: {e}")
 
 
 def fetch_live_spot_from_yahoo():
@@ -67,12 +63,13 @@ def fetch_live_spot_from_yahoo():
 
 
 def fetch_nse_option_chain_data(symbol="NIFTY"):
-    """Fetches the live option chain JSON directly from NSE with proper session cookies."""
+    """Fetches live option chain JSON directly from NSE using a persistent session and correct cookie headers."""
     base_url = "https://www.nseindia.com"
     api_url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive"
@@ -80,23 +77,29 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
 
     session = requests.Session()
     try:
+        # Step 1: Hit main website first to establish necessary cookies and bypass basic Cloudflare/WAF walls
         session.get(base_url, headers=headers, timeout=10)
+        time.sleep(1)
+        
+        # Step 2: Request the actual JSON API with the cookies captured from session
         response = session.get(api_url, headers=headers, timeout=10)
         if response.status_code == 200:
             return response.json()
+        else:
+            print(f"⚠️ NSE API responded with status code: {response.status_code}")
     except Exception as e:
         print(f"Failed to fetch live NSE option chain: {e}")
     return None
 
 
 def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
-    """Searches the live NSE option chain JSON with robust date parsing to ensure exact match."""
+    """Searches live NSE option chain JSON to extract accurate live Implied Volatility (IV)."""
     data = fetch_nse_option_chain_data("NIFTY")
     ce_iv = 0.0
     pe_iv = 0.0
 
     if not data:
-        print("⚠️ Live NSE option chain data returned None.")
+        print("⚠️ Live NSE option chain data returned None. IV will fall back to Bhavcopy if available.")
         return ce_iv, pe_iv
 
     target_dt = None
@@ -136,7 +139,7 @@ def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
                             break
                         except ValueError:
                             continue
-                            
+                        
                     if (target_dt and pe_dt and target_dt == pe_dt) or (pe_exp_str.upper() == str(target_expiry).upper()):
                         pe_iv = float(pe_data.get("impliedVolatility", 0.0))
                 break
@@ -168,7 +171,6 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
             print(f"Error parsing live asymmetric time value: {e}")
 
     if not strike_map and bhav_map:
-        print("ℹ️ Using Bhavcopy data for Asymmetric Time Value fallback.")
         all_strikes = set(s for s, t in bhav_map.keys())
         for strike in all_strikes:
             ce_close = bhav_map.get((strike, "CE"), {}).get("close", 0.0)
@@ -206,9 +208,8 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
 
 
 def get_valid_highs(candles, max_count=5):
-    """Identifies unique unbroken swing highs to map out the Sellers Area / Resistance levels."""
+    """Identifies unique unbroken swing highs for Resistance/Sellers Area."""
     valid_highs = []
-    
     if not candles:
         return valid_highs
     
@@ -231,7 +232,7 @@ def get_valid_highs(candles, max_count=5):
 
 
 def fetch_intraday_candles_for_sellers_area():
-    """Fetches recent intraday candles from Yahoo Finance to pass into get_valid_highs."""
+    """Fetches recent intraday candles from Yahoo Finance."""
     try:
         ticker = yf.Ticker("^NSEI")
         df = ticker.history(period="5d", interval="15m")
@@ -245,7 +246,7 @@ def fetch_intraday_candles_for_sellers_area():
                 })
             return candles
     except Exception as e:
-        print(f"⚠️ Could not fetch intraday candles for valid highs: {e}")
+        print(f"⚠️ Could not fetch intraday candles: {e}")
     return []
 
 
@@ -291,7 +292,7 @@ def download_today_bhavcopy(max_retries=5, delay_seconds=60):
                         with open("bhavcopy.csv", "w", encoding="utf-8") as f:
                             f.write("\n".join(nifty_lines))
 
-                print(f"Successfully downloaded TODAY'S Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
+                print(f"Successfully downloaded Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
                 return True
             else:
                 print(f"⚠️ Server returned status {response.status_code}. File not ready yet.")
@@ -346,7 +347,7 @@ def load_bhavcopy_dict(target_expiry_str):
                     continue
 
                 opt_type_raw = (cleaned_row.get("OPTNTP") or cleaned_row.get("OPTION_TYP") or 
-                                cleaned_row.get("OPTIONTYPE") or "")
+                              cleaned_row.get("OPTIONTYPE") or "")
                 opt_type = "CE" if "CE" in opt_type_raw.upper() else "PE" if "PE" in opt_type_raw.upper() else ""
 
                 if not opt_type:
@@ -374,7 +375,7 @@ def load_bhavcopy_dict(target_expiry_str):
 
 
 def calculate_dominance_metrics(data_dict):
-    """Calculates H-C and C-L distances and applies the 1.5x rule."""
+    """Calculates H-C and C-L distances, applies 1.5x rule, and keeps IV cleanly structured."""
     if not data_dict:
         return {
             "high": 0.0, "close": 0.0, "low": 0.0, "iv": 0.0,
@@ -540,12 +541,14 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     target_s2_ce_strike = sniper2_atm_strike + 100
     target_s2_pe_strike = sniper2_atm_strike - 100
 
+    # Extract initial dictionary values (Bhavcopy fallback for IV included)
     ce_dict = w_bhav.get((int(hlc_atm_strike), "CE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
     pe_dict = w_bhav.get((int(hlc_atm_strike), "PE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
 
     ce_metrics = calculate_dominance_metrics(ce_dict)
     pe_metrics = calculate_dominance_metrics(pe_dict)
 
+    # Overwrite IV with live real-time values from NSE option chain if accessible
     live_ce_iv, live_pe_iv = get_live_iv_from_nse(hlc_atm_strike, w_exp)
     if live_ce_iv > 0:
         ce_metrics["iv"] = round(live_ce_iv, 2)
@@ -572,7 +575,6 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     max_supply_val = round(hlc_atm_strike + (ce_metrics["close"] + pe_metrics["close"]), 2)
     max_demand_val = round(hlc_atm_strike - (ce_metrics["close"] + pe_metrics["close"]), 2)
 
-    # Fetch candles and extract valid unbroken highs for Sellers Area
     intraday_candles = fetch_intraday_candles_for_sellers_area()
     dynamic_sellers_highs = get_valid_highs(intraday_candles, max_count=5)
 
