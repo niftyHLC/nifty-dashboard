@@ -35,7 +35,6 @@
         .iv-split-row { display: flex; justify-content: center; align-items: center; gap: 6px; padding-top: 2px; font-size: 0.8rem; font-weight: 700; color: #fff; white-space: nowrap; }
         .time-val-display { font-size: 0.8rem; font-weight: 700; color: #fff; text-align: center; margin: auto 0; }
         
-        /* Card Dynamic Theming (Transparent background, colored text & 3px borders) */
         .card { border: 3px solid #334155; border-radius: 10px; padding: 10px; background: transparent !important; }
         .card.card-buyers { border-color: #22c55e; }
         .card.card-buyers *, .card.card-buyers .hcl-val { color: #22c55e !important; }
@@ -268,7 +267,10 @@
         document.getElementById('expiryBadge').innerText = formatDateToDDMMYYYY(data.expiryDate);
         document.getElementById('hlcAtmStrike').innerText = data.hlcAtmStrike || '-----';
 
-        let highs = Array.isArray(data.fiveHighs) ? data.fiveHighs : [data.high1||0, data.high2||0, data.high3||0, data.high4||0, data.high5||0];
+        let highs = Array.isArray(data.sellersArea?.validUnbrokenHighs) 
+            ? data.sellersArea.validUnbrokenHighs 
+            : (Array.isArray(data.fiveHighs) ? data.fiveHighs : [data.high1||0, data.high2||0, data.high3||0, data.high4||0, data.high5||0]);
+            
         for (let i = 0; i < 5; i++) {
             const el = document.getElementById(`high${i+1}`);
             if (el) el.innerText = (Number(highs[i]) || 0).toFixed(2);
