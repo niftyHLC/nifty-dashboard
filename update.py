@@ -77,11 +77,8 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
 
     session = requests.Session()
     try:
-        # Step 1: Hit main website first to establish necessary cookies and bypass basic Cloudflare/WAF walls
         session.get(base_url, headers=headers, timeout=10)
         time.sleep(1)
-        
-        # Step 2: Request the actual JSON API with the cookies captured from session
         response = session.get(api_url, headers=headers, timeout=10)
         if response.status_code == 200:
             return response.json()
@@ -150,8 +147,8 @@ def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
     return ce_iv, pe_iv
 
 
-def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
-    """Calculates Asymmetric Cross-Strike Time Value."""
+def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None):
+    """Calculates Asymmetric Cross-Strike Time Value using the TV ATM strike center."""
     strike_map = {}
     
     data = fetch_nse_option_chain_data("NIFTY")
@@ -183,8 +180,11 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
 
     try:
         sorted_strikes = sorted(strike_map.keys())
-        atm_strike = min(sorted_strikes, key=lambda x: abs(x - spot_price))
-        atm_idx = sorted_strikes.index(atm_strike)
+        if tv_atm_strike in sorted_strikes:
+            atm_idx = sorted_strikes.index(tv_atm_strike)
+        else:
+            atm_strike = min(sorted_strikes, key=lambda x: abs(x - tv_atm_strike))
+            atm_idx = sorted_strikes.index(atm_strike)
 
         if atm_idx > 0 and atm_idx < len(sorted_strikes) - 1:
             ce_strike_above = sorted_strikes[atm_idx + 1]
@@ -520,18 +520,34 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
-    min_diff = float('inf')
+    # --- TV ATM SMALLEST STRIKE METHOD ---
+    min_time_val = float('inf')
     hlc_atm_strike = int(round(spot / 50.0) * 50) if spot > 0 else 23450
 
+    # Step 1: Find the absolute minimum time value (CE + PE sum) near spot
     for (strike, opt_type), d_val in w_bhav.items():
         if abs(strike - spot) <= 500:
             ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
             pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
             if ce_close > 0 and pe_close > 0:
-                diff = abs(ce_close - pe_close)
-                if diff < min_diff:
-                    min_diff = diff
-                    hlc_atm_strike = strike
+                time_val = ce_close + pe_close
+                if time_val < min_time_val:
+                    min_time_val = time_val
+
+    # Step 2: Collect candidate strikes matching this minimum time value and select the smallest
+    candidate_strikes = []
+    for (strike, opt_type), d_val in w_bhav.items():
+        if abs(strike - spot) <= 500:
+            ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
+            pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
+            if ce_close > 0 and pe_close > 0:
+                time_val = ce_close + pe_close
+                if abs(time_val - min_time_val) <= 0.5:
+                    candidate_strikes.append(strike)
+
+    if candidate_strikes:
+        hlc_atm_strike = min(candidate_strikes)
+    # ------------------------------------
 
     sniper1_atm_strike = int(round(spot / 100.0) * 100) if spot > 0 else 23400
     sniper2_atm_strike = hlc_atm_strike
@@ -541,21 +557,19 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     target_s2_ce_strike = sniper2_atm_strike + 100
     target_s2_pe_strike = sniper2_atm_strike - 100
 
-    # Extract initial dictionary values (Bhavcopy fallback for IV included)
     ce_dict = w_bhav.get((int(hlc_atm_strike), "CE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
     pe_dict = w_bhav.get((int(hlc_atm_strike), "PE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
 
     ce_metrics = calculate_dominance_metrics(ce_dict)
     pe_metrics = calculate_dominance_metrics(pe_dict)
 
-    # Overwrite IV with live real-time values from NSE option chain if accessible
     live_ce_iv, live_pe_iv = get_live_iv_from_nse(hlc_atm_strike, w_exp)
     if live_ce_iv > 0:
         ce_metrics["iv"] = round(live_ce_iv, 2)
     if live_pe_iv > 0:
         pe_metrics["iv"] = round(live_pe_iv, 2)
 
-    asymmetric_tv_data = calculate_asymmetric_time_value(spot, w_exp, w_bhav)
+    asymmetric_tv_data = calculate_asymmetric_time_value(hlc_atm_strike, w_exp, w_bhav)
 
     s1_atm_ce_val = w_bhav.get((sniper1_atm_strike, "CE"), {}).get("close", 0.0)
     s1_atm_pe_val = w_bhav.get((sniper1_atm_strike, "PE"), {}).get("close", 0.0)
