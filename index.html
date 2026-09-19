@@ -326,7 +326,7 @@
         const s2Card = document.getElementById('sniper2Card');
         if (data.sniper2) { s2Card.style.display = 'flex'; setSniper(2, data.sniper2); } else { s2Card.style.display = 'none'; }
 
-        document.getElementById('earthVal').innerText = (Number(data.earth) || 0).toFixed(2);
+        document.getElementById('earthVal').innerText = (Number(data.earthLevel ?? data.earth) || 0).toFixed(2);
     }
 
     updateDashboard();
