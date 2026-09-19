@@ -28,7 +28,7 @@
         .five-high-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; text-align: center; }
         .five-high-item { background: transparent; border: 3px solid #334155; border-radius: 6px; padding: 6px 1px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
         .five-high-label { font-size: 0.55rem; font-weight: 700; color: #94a3b8; }
-        .five-high-val { font-size: 0.67rem; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+        .five-high-val { font-size: 0.67rem; font-weight: 700; color: #38bdf8; letter-spacing: -0.5px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .iv-time-card { padding: 10px 12px; justify-content: space-between; }
         .iv-time-title { color: #fff; margin-bottom: 6px; }
@@ -307,8 +307,7 @@
 
         document.getElementById('minSupply').innerText = (Number(data.minSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
         document.getElementById('minDemand').innerText = (Number(data.minDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
-        unknownMaxSupply = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
-        document.getElementById('maxSupply').innerText = unknownMaxSupply;
+        document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
         document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
 
         const setSniper = (id, sObj) => {
