@@ -22,13 +22,13 @@
         .straddle-total { font-size: 1.1rem; font-weight: 700; color: #fff; text-align: right; }
         .straddle-sub { font-size: 0.7rem; color: #fff; font-weight: 700; }
         .five-high-card, .iv-time-card, .sd-main-card, .sniper-card { border: 3px solid #334155; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
-        .five-high-card { border-color: #38bdf8; }
-        .five-high-header, .iv-time-title, .sd-header-box { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; }
-        .five-high-header { color: #38bdf8; }
-        .five-high-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; text-align: center; }
-        .five-high-item { background: rgba(56, 189, 248, 0.05); border: 3px solid #334155; border-radius: 6px; padding: 6px 2px; display: flex; flex-direction: column; gap: 2px; }
-        .five-high-label { font-size: 0.6rem; font-weight: 700; color: #94a3b8; }
-        .five-high-val { font-size: 0.8rem; font-weight: 700; color: #38bdf8; }
+        .five-high-card { border-color: #334155; }
+        .five-high-header, .iv-time-title, .sd-header-box { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; text-align: center; }
+        .five-high-header { color: #fff; }
+        .five-high-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; text-align: center; }
+        .five-high-item { background: transparent; border: 3px solid #334155; border-radius: 6px; padding: 6px 1px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+        .five-high-label { font-size: 0.55rem; font-weight: 700; color: #94a3b8; }
+        .five-high-val { font-size: 0.67rem; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .iv-time-card { padding: 10px 12px; justify-content: space-between; }
         .iv-time-title { color: #fff; margin-bottom: 6px; }
@@ -166,7 +166,7 @@
     </div>
 
     <div class="five-high-card" id="fiveHighCard">
-        <div class="five-high-header">5 HIGH VALUES (BEFORE CALC)</div>
+        <div class="five-high-header">5 DAY HIGH VALUES (NOT BROKEN)</div>
         <div class="five-high-grid">
             <div class="five-high-item"><span class="five-high-label">H1</span><span class="five-high-val" id="high1">0.00</span></div>
             <div class="five-high-item"><span class="five-high-label">H2</span><span class="five-high-val" id="high2">0.00</span></div>
@@ -307,7 +307,8 @@
 
         document.getElementById('minSupply').innerText = (Number(data.minSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
         document.getElementById('minDemand').innerText = (Number(data.minDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
-        document.getElementById('maxSupply').innerText = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
+        unknownMaxSupply = (Number(data.maxSupply) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
+        document.getElementById('maxSupply').innerText = unknownMaxSupply;
         document.getElementById('maxDemand').innerText = (Number(data.maxDemand) || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
 
         const setSniper = (id, sObj) => {
