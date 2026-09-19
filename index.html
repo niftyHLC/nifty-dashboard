@@ -34,39 +34,44 @@
         .iv-time-title { color: #fff; margin-bottom: 6px; }
         .iv-split-row { display: flex; justify-content: center; align-items: center; gap: 6px; padding-top: 2px; font-size: 0.8rem; font-weight: 700; color: #fff; white-space: nowrap; }
         .time-val-display { font-size: 0.8rem; font-weight: 700; color: #fff; text-align: center; margin: auto 0; }
+        
+        /* Card Dynamic Theming (All text inside matches state color) */
         .card { border: 2px solid #334155; border-radius: 10px; padding: 10px; }
         .card.card-buyers { border-color: #22c55e; }
-        .card.card-buyers .strike-header span, .card.card-buyers .hcl-label, .card.card-buyers .hcl-val, .card.card-buyers .diff-footer span { color: #22c55e !important; }
+        .card.card-buyers *, .card.card-buyers .hcl-val { color: #22c55e !important; }
         .card.card-sellers { border-color: #ef4444; }
-        .card.card-sellers .strike-header span, .card.card-sellers .hcl-label, .card.card-sellers .hcl-val, .card.card-sellers .diff-footer span { color: #ef4444 !important; }
+        .card.card-sellers *, .card.card-sellers .hcl-val { color: #ef4444 !important; }
         .card.card-neutral { border-color: #eab308; }
-        .card.card-neutral .strike-header span, .card.card-neutral .hcl-label, .card.card-neutral .hcl-val, .card.card-neutral .diff-footer span { color: #eab308 !important; }
+        .card.card-neutral *, .card.card-neutral .hcl-val { color: #eab308 !important; }
+
         .card-tag-container { text-align: center; margin-bottom: 8px; }
         .card-tag { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; display: inline-block; }
-        .tag-neutral { background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid #eab308; }
-        .tag-buyers { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e; }
-        .tag-sellers { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444; }
+        .tag-neutral { background: rgba(234, 179, 8, 0.15); color: #eab308 !important; border: 1px solid #eab308; }
+        .tag-buyers { background: rgba(34, 197, 94, 0.15); color: #22c55e !important; border: 1px solid #22c55e; }
+        .tag-sellers { background: rgba(239, 68, 68, 0.15); color: #ef4444 !important; border: 1px solid #ef4444; }
+        
         .strike-header { display: flex; justify-content: space-between; font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
         .candle-graphic { width: 32px; height: 60px; display: flex; align-items: center; justify-content: center; }
-        .hcl-box { font-size: 0.8rem; color: #94a3b8; line-height: 1.4; text-align: right; }
+        .hcl-box { font-size: 0.8rem; line-height: 1.4; text-align: right; }
         .hcl-label { font-weight: 700; }
-        .hcl-val { color: #f8fafc; font-weight: 700; }
-        .diff-footer { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #475569; font-size: 0.65rem; color: #94a3b8; font-weight: 700; }
+        .hcl-val { font-weight: 700; }
+        .diff-footer { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #475569; font-size: 0.65rem; font-weight: 700; }
+
         .sd-supply-card .sd-label, .sd-supply-card .sd-val-red { color: #ef4444 !important; }
         .sd-demand-card .sd-label, .sd-demand-card .sd-val-green { color: #22c55e !important; }
         .sd-header-box { color: #fff; }
         .sd-body { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: center; }
-        .sd-row { font-size: 0.9rem; font-weight: 700; padding: 0 4px; }
+        .sd-row { font-size: 0.9rem; font-weight: 700; padding: 0 4px; display: flex; justify-content: space-between; align-items: center; }
         .sd-divider { border-top: 1px dashed #475569; width: 100%; margin: 2px 0; }
         .sd-val-red { color: #ef4444; }
         .sd-val-green { color: #22c55e; }
-        .sniper-card { align-items: center; text-align: center; gap: 4px; }
+        .sniper-card { border: 3px solid #334155; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; }
         .sniper-content-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; }
         .sniper-text-main, .sniper-sub-text { font-size: 0.8rem; font-weight: 700; color: #38bdf8; }
         .sniper-sub-text { margin-top: 2px; }
         .sniper-val { font-size: 1.4rem; font-weight: 700; color: #38bdf8; margin-top: 2px; }
         .sniper-text-main span.pipe, .sniper-sub-text span.pipe { color: #fff !important; }
-        .earth-card { border: 2px solid #38bdf8; border-radius: 10px; padding: 10px; }
+        .earth-card { border: 2px solid #38bdf8; border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
