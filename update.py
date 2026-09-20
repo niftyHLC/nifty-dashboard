@@ -89,8 +89,31 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
     return None
 
 
-def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
-    """Searches live NSE option chain JSON to extract accurate live Implied Volatility (IV)."""
+def get_transition_atm_strikes(spot):
+    """Finds the two ATM boundary transition strikes (e.g., 23350 and 23400) and returns the smallest one."""
+    lower_strike = int(math.floor(spot / 50.0) * 50)
+    upper_strike = lower_strike + 50
+    
+    # Identify the two transition strikes framing the spot price
+    if (spot - lower_strike) >= (upper_strike - spot):
+        strike_1 = lower_strike
+        strike_2 = upper_strike
+    else:
+        strike_1 = lower_strike - 50 if lower_strike > 50 else lower_strike
+        strike_2 = lower_strike
+
+    # Ensure we have the exact two adjacent boundary strikes
+    boundary_strikes = sorted([int(math.floor(spot / 50.0) * 50), int(math.ceil(spot / 50.0) * 50)])
+    if boundary_strikes[0] == boundary_strikes[1]:
+        boundary_strikes[1] += 50
+        
+    smallest_atm = min(boundary_strikes)
+    print(f"🔍 ATM Transition Strikes found: {boundary_strikes} | Smallest ATM chosen for IV: {smallest_atm}")
+    return smallest_atm
+
+
+def get_live_iv_from_nse(atm_strike, target_expiry):
+    """Searches live NSE option chain JSON to extract accurate live Implied Volatility (IV) using the smallest ATM strike."""
     data = fetch_nse_option_chain_data("NIFTY")
     ce_iv = 0.0
     pe_iv = 0.0
@@ -110,7 +133,7 @@ def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
     try:
         records = data.get("records", {}).get("data", [])
         for item in records:
-            if float(item.get("strikePrice", 0)) == float(hlc_atm_strike):
+            if float(item.get("strikePrice", 0)) == float(atm_strike):
                 ce_data = item.get("CE", {})
                 pe_data = item.get("PE", {})
                 
@@ -143,7 +166,7 @@ def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
     except Exception as e:
         print(f"Error parsing live IV from NSE data: {e}")
 
-    print(f"🔍 Live IV Lookup for Strike {hlc_atm_strike} -> CE IV: {ce_iv}, PE IV: {pe_iv}")
+    print(f"🔍 Live IV Lookup for Smallest ATM Strike {atm_strike} -> CE IV: {ce_iv}, PE IV: {pe_iv}")
     return ce_iv, pe_iv
 
 
@@ -527,31 +550,8 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
-    # --- TV ATM SMALLEST STRIKE METHOD ---
-    min_time_val = float('inf')
-    hlc_atm_strike = int(round(spot / 50.0) * 50) if spot > 0 else 23450
-
-    for (strike, opt_type), d_val in w_bhav.items():
-        if abs(strike - spot) <= 500:
-            ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
-            pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
-            if ce_close > 0 and pe_close > 0:
-                time_val = ce_close + pe_close
-                if time_val < min_time_val:
-                    min_time_val = time_val
-
-    candidate_strikes = []
-    for (strike, opt_type), d_val in w_bhav.items():
-        if abs(strike - spot) <= 500:
-            ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
-            pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
-            if ce_close > 0 and pe_close > 0:
-                time_val = ce_close + pe_close
-                if abs(time_val - min_time_val) <= 0.5:
-                    candidate_strikes.append(strike)
-
-    if candidate_strikes:
-        hlc_atm_strike = min(candidate_strikes)
+    # --- SMALLEST ATM STRIKE FOR IV ATM ---
+    hlc_atm_strike = get_transition_atm_strikes(spot)
     # ------------------------------------
 
     sniper1_atm_strike = int(round(spot / 100.0) * 100) if spot > 0 else 23400
@@ -594,21 +594,16 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     max_supply_val = round(hlc_atm_strike + (ce_metrics["close"] + pe_metrics["close"]), 2)
     max_demand_val = round(hlc_atm_strike - (ce_metrics["close"] + pe_metrics["close"]), 2)
 
-    # Fetch daily candles and grab the 5 unbroken red swing highs from newest to oldest
     daily_candles = fetch_daily_candles_for_sellers_area()
     dynamic_sellers_highs = get_valid_highs(daily_candles, max_count=5)
 
-    # --- REQUIREMENT: 5 HIGHS ALWAYS ABOVE MAX SUPPLY ---
-    # If any of the 5 swing highs are lower than max_supply_val, shift or bump them strictly above max_supply_val
     adjusted_sellers_highs = []
     for h in dynamic_sellers_highs:
         if h <= max_supply_val:
-            # Ensure it sits above max supply with a small proportional bump or gap
             adjusted_sellers_highs.append(round(max_supply_val + (max_supply_val - h) + 25.0, 2))
         else:
             adjusted_sellers_highs.append(h)
     dynamic_sellers_highs = adjusted_sellers_highs
-    # ----------------------------------------------------
 
     wl = int(math.floor(spot / 100.0) * 100) if spot > 0 else 23300
     wh = int(math.ceil(spot / 100.0) * 100) if spot > 0 else 23400
