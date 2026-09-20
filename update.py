@@ -208,12 +208,16 @@ def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None)
 
 
 def get_valid_highs(candles, max_count=5):
-    """Identifies unique unbroken swing highs strictly from RED candles (Close < Open)."""
+    """Identifies unique unbroken swing highs strictly from RED candles, scanning newest to oldest."""
     valid_highs = []
     if not candles:
         return valid_highs
     
-    for i, current in enumerate(candles):
+    n = len(candles)
+    # Scan backwards from the newest candle to the oldest candle
+    for i in range(n - 1, -1, -1):
+        current = candles[i]
+        
         # Filter: Skip if candle is not red (Close >= Open)
         if current['close'] >= current['open']:
             continue
@@ -221,8 +225,9 @@ def get_valid_highs(candles, max_count=5):
         high_val = current['high']
         is_broken = False
         
-        for future_candle in candles[i+1:]:
-            if future_candle['high'] > high_val:
+        # Check if any subsequent candle breaks this high
+        for j in range(i + 1, n):
+            if candles[j]['high'] > high_val:
                 is_broken = True
                 break
         
@@ -592,7 +597,7 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     max_supply_val = round(hlc_atm_strike + (ce_metrics["close"] + pe_metrics["close"]), 2)
     max_demand_val = round(hlc_atm_strike - (ce_metrics["close"] + pe_metrics["close"]), 2)
 
-    # Fetch daily candles to find the 5 red candle swing highs
+    # Fetch daily candles and grab the 5 unbroken red swing highs from newest to oldest
     daily_candles = fetch_daily_candles_for_sellers_area()
     dynamic_sellers_highs = get_valid_highs(daily_candles, max_count=5)
 
