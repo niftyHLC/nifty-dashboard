@@ -6,10 +6,10 @@ import math
 import os
 import subprocess
 import time
-import zipfile
 import holidays
 import requests
 import yfinance as yf
+import zipfile
 
 # Indian Standard Time (IST) offset
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
@@ -94,20 +94,17 @@ def get_transition_atm_strikes(spot):
     lower_strike = int(math.floor(spot / 50.0) * 50)
     upper_strike = lower_strike + 50
     
-    if (spot - lower_strike) >= (upper_strike - spot):
-        strike_1 = lower_strike
-        strike_2 = upper_strike
-    else:
-        strike_1 = lower_strike - 50 if lower_strike > 50 else lower_strike
-        strike_2 = lower_strike
-
-    boundary_strikes = sorted([int(math.floor(spot / 50.0) * 50), int(math.ceil(spot / 50.0) * 50)])
-    if boundary_strikes[0] == boundary_strikes[1]:
-        boundary_strikes[1] += 50
-        
+    boundary_strikes = sorted([lower_strike, upper_strike])
     smallest_atm = min(boundary_strikes)
-    print(f"🔍 ATM Transition Strikes found: {boundary_strikes} | Smallest ATM chosen for IV: {smallest_atm}")
+    print(f"🔍 ATM Transition Strikes found: {boundary_strikes} | Smallest ATM chosen for HLC: {smallest_atm}")
     return smallest_atm
+
+
+def get_iv_atm_strike(spot):
+    """Finds the true IV ATM strike by rounding the spot price to the nearest 50."""
+    atm = int(round(spot / 50.0) * 50)
+    print(f"🔍 True IV ATM Strike calculated from spot {spot} -> {atm}")
+    return atm
 
 
 def get_live_iv_from_nse(atm_strike, target_expiry):
@@ -164,16 +161,17 @@ def get_live_iv_from_nse(atm_strike, target_expiry):
     except Exception as e:
         print(f"Error parsing live IV from NSE data: {e}")
 
-    print(f"🔍 Live IV Lookup for Smallest ATM Strike {atm_strike} -> CE IV: {ce_iv}, PE IV: {pe_iv}")
+    print(f"🔍 Live IV Lookup for IV ATM Strike {atm_strike} -> CE IV: {ce_iv}, PE IV: {pe_iv}")
     return ce_iv, pe_iv
 
 
-def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None):
+def calculate_asymmetric_time_value(spot, target_expiry, bhav_map=None):
     """
-    Finds the IV ATM strike, then calculates Time Value using:
+    Finds the true IV ATM strike (nearest 50 to spot), then calculates Time Value using:
     - CE Strike: One step ABOVE the IV ATM strike
     - PE Strike: One step BELOW the IV ATM strike
     """
+    iv_atm_strike = get_iv_atm_strike(spot)
     strike_map = {}
     
     data = fetch_nse_option_chain_data("NIFTY")
@@ -206,11 +204,11 @@ def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None)
     try:
         sorted_strikes = sorted(strike_map.keys())
         
-        # Step 1: Find the index of the IV ATM strike (or closest match)
-        if tv_atm_strike in sorted_strikes:
-            atm_idx = sorted_strikes.index(tv_atm_strike)
+        # Step 1: Find the index of the IV ATM strike (nearest 50)
+        if iv_atm_strike in sorted_strikes:
+            atm_idx = sorted_strikes.index(iv_atm_strike)
         else:
-            closest_atm = min(sorted_strikes, key=lambda x: abs(x - tv_atm_strike))
+            closest_atm = min(sorted_strikes, key=lambda x: abs(x - iv_atm_strike))
             atm_idx = sorted_strikes.index(closest_atm)
 
         # Step 2: Use your method -> CE strike above (+1 index), PE strike below (-1 index)
@@ -221,6 +219,8 @@ def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None)
             ce_ltp = strike_map[ce_strike_above]["ce"]
             pe_ltp = strike_map[pe_strike_below]["pe"]
             total_tv = round(ce_ltp + pe_ltp, 2)
+
+            print(f"⏱️ Time Value Calculation -> IV ATM: {sorted_strikes[atm_idx]} | CE Strike (+1): {ce_strike_above} (LTP: {ce_ltp}) | PE Strike (-1): {pe_strike_below} (LTP: {pe_ltp}) | Total TV: {total_tv}")
 
             return {
                 "total": total_tv,
@@ -554,6 +554,7 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     m_bhav = load_bhavcopy_dict(m_exp)
 
     hlc_atm_strike = get_transition_atm_strikes(spot)
+    iv_atm_strike = get_iv_atm_strike(spot)
 
     sniper1_atm_strike = int(round(spot / 100.0) * 100) if spot > 0 else 23400
     sniper2_atm_strike = hlc_atm_strike
@@ -569,13 +570,13 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     ce_metrics = calculate_dominance_metrics(ce_dict)
     pe_metrics = calculate_dominance_metrics(pe_dict)
 
-    live_ce_iv, live_pe_iv = get_live_iv_from_nse(hlc_atm_strike, w_exp)
+    live_ce_iv, live_pe_iv = get_live_iv_from_nse(iv_atm_strike, w_exp)
     if live_ce_iv > 0:
         ce_metrics["iv"] = round(live_ce_iv, 2)
     if live_pe_iv > 0:
         pe_metrics["iv"] = round(live_pe_iv, 2)
 
-    asymmetric_tv_data = calculate_asymmetric_time_value(hlc_atm_strike, w_exp, w_bhav)
+    asymmetric_tv_data = calculate_asymmetric_time_value(spot, w_exp, w_bhav)
 
     s1_atm_ce_val = w_bhav.get((sniper1_atm_strike, "CE"), {}).get("close", 0.0)
     s1_atm_pe_val = w_bhav.get((sniper1_atm_strike, "PE"), {}).get("close", 0.0)
@@ -624,6 +625,7 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
         "expiryDate": w_exp,
         "spotPrice": spot,
         "hlcAtmStrike": hlc_atm_strike,
+        "ivAtmStrike": iv_atm_strike,
         "ce": ce_metrics,
         "pe": pe_metrics,
         "ceTag": ce_metrics["dominance"], 
