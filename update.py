@@ -208,12 +208,16 @@ def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None)
 
 
 def get_valid_highs(candles, max_count=5):
-    """Identifies unique unbroken swing highs for Resistance/Sellers Area."""
+    """Identifies unique unbroken swing highs strictly from RED candles (Close < Open)."""
     valid_highs = []
     if not candles:
         return valid_highs
     
     for i, current in enumerate(candles):
+        # Filter: Skip if candle is not red (Close >= Open)
+        if current['close'] >= current['open']:
+            continue
+            
         high_val = current['high']
         is_broken = False
         
@@ -231,22 +235,23 @@ def get_valid_highs(candles, max_count=5):
     return valid_highs
 
 
-def fetch_intraday_candles_for_sellers_area():
-    """Fetches recent intraday candles from Yahoo Finance."""
+def fetch_daily_candles_for_sellers_area():
+    """Fetches recent daily candles from Yahoo Finance including open price."""
     try:
         ticker = yf.Ticker("^NSEI")
-        df = ticker.history(period="5d", interval="15m")
+        df = ticker.history(period="6mo", interval="1d")
         if not df.empty:
             candles = []
             for _, row in df.iterrows():
                 candles.append({
+                    "open": float(row["Open"]),
                     "high": float(row["High"]),
                     "low": float(row["Low"]),
                     "close": float(row["Close"])
                 })
             return candles
     except Exception as e:
-        print(f"⚠️ Could not fetch intraday candles: {e}")
+        print(f"⚠️ Could not fetch daily candles: {e}")
     return []
 
 
@@ -524,7 +529,6 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     min_time_val = float('inf')
     hlc_atm_strike = int(round(spot / 50.0) * 50) if spot > 0 else 23450
 
-    # Step 1: Find the absolute minimum time value (CE + PE sum) near spot
     for (strike, opt_type), d_val in w_bhav.items():
         if abs(strike - spot) <= 500:
             ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
@@ -534,7 +538,6 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
                 if time_val < min_time_val:
                     min_time_val = time_val
 
-    # Step 2: Collect candidate strikes matching this minimum time value and select the smallest
     candidate_strikes = []
     for (strike, opt_type), d_val in w_bhav.items():
         if abs(strike - spot) <= 500:
@@ -589,8 +592,9 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     max_supply_val = round(hlc_atm_strike + (ce_metrics["close"] + pe_metrics["close"]), 2)
     max_demand_val = round(hlc_atm_strike - (ce_metrics["close"] + pe_metrics["close"]), 2)
 
-    intraday_candles = fetch_intraday_candles_for_sellers_area()
-    dynamic_sellers_highs = get_valid_highs(intraday_candles, max_count=5)
+    # Fetch daily candles to find the 5 red candle swing highs
+    daily_candles = fetch_daily_candles_for_sellers_area()
+    dynamic_sellers_highs = get_valid_highs(daily_candles, max_count=5)
 
     wl = int(math.floor(spot / 100.0) * 100) if spot > 0 else 23300
     wh = int(math.ceil(spot / 100.0) * 100) if spot > 0 else 23400
