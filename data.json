@@ -1,0 +1,85 @@
+{
+    "dataStatus": "SUCCESS",
+    "bhavcopyReady": false,
+    "currentDate": "21 SEP 2026",
+    "expiryDate": "2026-09-22",
+    "spotPrice": 23346.400390625,
+    "hlcAtmStrike": 23300,
+    "ivAtmStrike": 23350,
+    "ce": {
+        "high": 149.0,
+        "close": 120.7,
+        "low": 99.15,
+        "iv": 0.0,
+        "hc": 28.3,
+        "cl": 21.55,
+        "dominance": "NEUTRAL",
+        "themeColor": "orange",
+        "tagClass": "tag-neutral"
+    },
+    "pe": {
+        "high": 113.45,
+        "close": 65.45,
+        "low": 53.6,
+        "iv": 0.0,
+        "hc": 48.0,
+        "cl": 11.85,
+        "dominance": "SELLERS",
+        "themeColor": "red",
+        "tagClass": "tag-sellers"
+    },
+    "ceTag": "NEUTRAL",
+    "ceClass": "tag-neutral",
+    "peTag": "SELLERS",
+    "peClass": "tag-sellers",
+    "bannerTotal": 186.15,
+    "asymmetricTimeValue": {
+        "total": 132.15,
+        "ceStrike": 23400,
+        "ceLtp": 66.7,
+        "peStrike": 23300,
+        "peLtp": 65.45
+    },
+    "minSupply": 23420.7,
+    "minDemand": 23234.55,
+    "maxSupply": 23486.15,
+    "maxDemand": 23113.85,
+    "sellersArea": {
+        "min": 23420.7,
+        "max": 23486.15,
+        "validUnbrokenHighs": [
+            23592.849609375,
+            23758.94921875,
+            23890.0,
+            24005.75,
+            24025.400390625
+        ]
+    },
+    "buyersArea": {
+        "min": 23234.55,
+        "max": 23113.85
+    },
+    "weeklyZones": {
+        "line1": 23486.15,
+        "line2": 23222.4
+    },
+    "monthlyZones": {
+        "line1": 25203.85,
+        "line2": 19651.8
+    },
+    "spotHigh": 23389.150390625,
+    "spotLow": 23286.599609375,
+    "spotDifference": 102.55,
+    "earthLevel": 26.78,
+    "sniper1": {
+        "strike": 23300,
+        "ce": 120.7,
+        "pe": 65.45,
+        "otmCeStrike": 23400,
+        "otmPeStrike": 23200,
+        "otmCe": 66.7,
+        "otmPe": 37.1,
+        "value": 51.9
+    },
+    "sniper2": null
+}
