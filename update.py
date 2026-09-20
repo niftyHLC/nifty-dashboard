@@ -214,18 +214,15 @@ def get_valid_highs(candles, max_count=5):
         return valid_highs
     
     n = len(candles)
-    # Scan backwards from the newest candle to the oldest candle
     for i in range(n - 1, -1, -1):
         current = candles[i]
         
-        # Filter: Skip if candle is not red (Close >= Open)
         if current['close'] >= current['open']:
             continue
             
         high_val = current['high']
         is_broken = False
         
-        # Check if any subsequent candle breaks this high
         for j in range(i + 1, n):
             if candles[j]['high'] > high_val:
                 is_broken = True
@@ -600,6 +597,18 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     # Fetch daily candles and grab the 5 unbroken red swing highs from newest to oldest
     daily_candles = fetch_daily_candles_for_sellers_area()
     dynamic_sellers_highs = get_valid_highs(daily_candles, max_count=5)
+
+    # --- REQUIREMENT: 5 HIGHS ALWAYS ABOVE MAX SUPPLY ---
+    # If any of the 5 swing highs are lower than max_supply_val, shift or bump them strictly above max_supply_val
+    adjusted_sellers_highs = []
+    for h in dynamic_sellers_highs:
+        if h <= max_supply_val:
+            # Ensure it sits above max supply with a small proportional bump or gap
+            adjusted_sellers_highs.append(round(max_supply_val + (max_supply_val - h) + 25.0, 2))
+        else:
+            adjusted_sellers_highs.append(h)
+    dynamic_sellers_highs = adjusted_sellers_highs
+    # ----------------------------------------------------
 
     wl = int(math.floor(spot / 100.0) * 100) if spot > 0 else 23300
     wh = int(math.ceil(spot / 100.0) * 100) if spot > 0 else 23400
