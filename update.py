@@ -114,7 +114,7 @@ def get_live_iv_from_nse(atm_strike, target_expiry):
     pe_iv = 0.0
 
     if not data:
-        print("⚠️ Live NSE option chain data returned None. IV will fall back to Bhavcopy if available.")
+        print("⚠️ Live NSE option chain data returned None.")
         return ce_iv, pe_iv
 
     target_dt = None
@@ -204,14 +204,12 @@ def calculate_asymmetric_time_value(spot, target_expiry, bhav_map=None):
     try:
         sorted_strikes = sorted(strike_map.keys())
         
-        # Step 1: Find the index of the IV ATM strike (nearest 50)
         if iv_atm_strike in sorted_strikes:
             atm_idx = sorted_strikes.index(iv_atm_strike)
         else:
             closest_atm = min(sorted_strikes, key=lambda x: abs(x - iv_atm_strike))
             atm_idx = sorted_strikes.index(closest_atm)
 
-        # Step 2: Use your method -> CE strike above (+1 index), PE strike below (-1 index)
         if atm_idx > 0 and atm_idx < len(sorted_strikes) - 1:
             ce_strike_above = sorted_strikes[atm_idx + 1]
             pe_strike_below = sorted_strikes[atm_idx - 1]
@@ -564,17 +562,29 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     target_s2_ce_strike = sniper2_atm_strike + 100
     target_s2_pe_strike = sniper2_atm_strike - 100
 
+    # 1. Fetch HLC metrics using HLC ATM strike
     ce_dict = w_bhav.get((int(hlc_atm_strike), "CE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
     pe_dict = w_bhav.get((int(hlc_atm_strike), "PE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
 
     ce_metrics = calculate_dominance_metrics(ce_dict)
     pe_metrics = calculate_dominance_metrics(pe_dict)
 
-    live_ce_iv, live_pe_iv = get_live_iv_from_nse(iv_atm_strike, w_exp)
-    if live_ce_iv > 0:
-        ce_metrics["iv"] = round(live_ce_iv, 2)
-    if live_pe_iv > 0:
-        pe_metrics["iv"] = round(live_pe_iv, 2)
+    # 2. Pull IV specifically from Bhavcopy using the IV ATM strike (iv_atm_strike) first
+    iv_bhav_ce = w_bhav.get((int(iv_atm_strike), "CE"), {}).get("iv", 0.0)
+    iv_bhav_pe = w_bhav.get((int(iv_atm_strike), "PE"), {}).get("iv", 0.0)
+
+    if iv_bhav_ce > 0:
+        ce_metrics["iv"] = round(iv_bhav_ce, 2)
+    if iv_bhav_pe > 0:
+        pe_metrics["iv"] = round(iv_bhav_pe, 2)
+
+    # 3. Fallback to Live NSE API if Bhavcopy IV is missing or 0.0
+    if ce_metrics["iv"] == 0.0 or pe_metrics["iv"] == 0.0:
+        live_ce_iv, live_pe_iv = get_live_iv_from_nse(iv_atm_strike, w_exp)
+        if live_ce_iv > 0:
+            ce_metrics["iv"] = round(live_ce_iv, 2)
+        if live_pe_iv > 0:
+            pe_metrics["iv"] = round(live_pe_iv, 2)
 
     asymmetric_tv_data = calculate_asymmetric_time_value(spot, w_exp, w_bhav)
 
