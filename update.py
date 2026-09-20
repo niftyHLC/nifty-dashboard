@@ -90,11 +90,10 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
 
 
 def get_transition_atm_strikes(spot):
-    """Finds the two ATM boundary transition strikes (e.g., 23350 and 23400) and returns the smallest one."""
+    """Finds the two ATM boundary transition strikes and returns the smallest one."""
     lower_strike = int(math.floor(spot / 50.0) * 50)
     upper_strike = lower_strike + 50
     
-    # Identify the two transition strikes framing the spot price
     if (spot - lower_strike) >= (upper_strike - spot):
         strike_1 = lower_strike
         strike_2 = upper_strike
@@ -102,7 +101,6 @@ def get_transition_atm_strikes(spot):
         strike_1 = lower_strike - 50 if lower_strike > 50 else lower_strike
         strike_2 = lower_strike
 
-    # Ensure we have the exact two adjacent boundary strikes
     boundary_strikes = sorted([int(math.floor(spot / 50.0) * 50), int(math.ceil(spot / 50.0) * 50)])
     if boundary_strikes[0] == boundary_strikes[1]:
         boundary_strikes[1] += 50
@@ -113,7 +111,7 @@ def get_transition_atm_strikes(spot):
 
 
 def get_live_iv_from_nse(atm_strike, target_expiry):
-    """Searches live NSE option chain JSON to extract accurate live Implied Volatility (IV) using the smallest ATM strike."""
+    """Searches live NSE option chain JSON to extract accurate live Implied Volatility (IV)."""
     data = fetch_nse_option_chain_data("NIFTY")
     ce_iv = 0.0
     pe_iv = 0.0
@@ -171,7 +169,11 @@ def get_live_iv_from_nse(atm_strike, target_expiry):
 
 
 def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None):
-    """Calculates Asymmetric Cross-Strike Time Value using the TV ATM strike center."""
+    """
+    Finds the IV ATM strike, then calculates Time Value using:
+    - CE Strike: One step ABOVE the IV ATM strike
+    - PE Strike: One step BELOW the IV ATM strike
+    """
     strike_map = {}
     
     data = fetch_nse_option_chain_data("NIFTY")
@@ -188,7 +190,7 @@ def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None)
                     if ce_ltp > 0 or pe_ltp > 0:
                         strike_map[strike] = {"ce": ce_ltp, "pe": pe_ltp}
         except Exception as e:
-            print(f"Error parsing live asymmetric time value: {e}")
+            print(f"Error parsing live time value: {e}")
 
     if not strike_map and bhav_map:
         all_strikes = set(s for s, t in bhav_map.keys())
@@ -203,12 +205,15 @@ def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None)
 
     try:
         sorted_strikes = sorted(strike_map.keys())
+        
+        # Step 1: Find the index of the IV ATM strike (or closest match)
         if tv_atm_strike in sorted_strikes:
             atm_idx = sorted_strikes.index(tv_atm_strike)
         else:
-            atm_strike = min(sorted_strikes, key=lambda x: abs(x - tv_atm_strike))
-            atm_idx = sorted_strikes.index(atm_strike)
+            closest_atm = min(sorted_strikes, key=lambda x: abs(x - tv_atm_strike))
+            atm_idx = sorted_strikes.index(closest_atm)
 
+        # Step 2: Use your method -> CE strike above (+1 index), PE strike below (-1 index)
         if atm_idx > 0 and atm_idx < len(sorted_strikes) - 1:
             ce_strike_above = sorted_strikes[atm_idx + 1]
             pe_strike_below = sorted_strikes[atm_idx - 1]
@@ -225,13 +230,13 @@ def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None)
                 "peLtp": pe_ltp
             }
     except Exception as e:
-        print(f"Error calculating asymmetric time value: {e}")
+        print(f"Error calculating time value: {e}")
 
     return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
 
 
 def get_valid_highs(candles, max_count=5):
-    """Identifies unique unbroken swing highs strictly from RED candles, scanning newest to oldest."""
+    """Identifies unique unbroken swing highs strictly from RED candles."""
     valid_highs = []
     if not candles:
         return valid_highs
@@ -261,7 +266,7 @@ def get_valid_highs(candles, max_count=5):
 
 
 def fetch_daily_candles_for_sellers_area():
-    """Fetches recent daily candles from Yahoo Finance including open price."""
+    """Fetches recent daily candles from Yahoo Finance."""
     try:
         ticker = yf.Ticker("^NSEI")
         df = ticker.history(period="6mo", interval="1d")
@@ -281,7 +286,7 @@ def fetch_daily_candles_for_sellers_area():
 
 
 def download_today_bhavcopy(max_retries=5, delay_seconds=60):
-    """Downloads official Bhavcopy directly from NSE archives with built-in retry-and-sleep loop."""
+    """Downloads official Bhavcopy directly from NSE archives with retry-and-sleep loop."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
@@ -296,7 +301,7 @@ def download_today_bhavcopy(max_retries=5, delay_seconds=60):
     
     for attempt in range(1, max_retries + 1):
         try:
-            print(f"⏳ Attempt {attempt}/{max_retries}: Checking/Downloading Bhavcopy for {now_ist.strftime('%Y-%m-%d')}...")
+            print(f"⏳ Attempt {attempt}/{max_retries}: Downloading Bhavcopy for {now_ist.strftime('%Y-%m-%d')}...")
             response = requests.get(url, headers=headers, timeout=30)
             
             if response.status_code == 200 and len(response.content) > 1000:
@@ -405,7 +410,7 @@ def load_bhavcopy_dict(target_expiry_str):
 
 
 def calculate_dominance_metrics(data_dict):
-    """Calculates H-C and C-L distances, applies 1.5x rule, and keeps IV cleanly structured."""
+    """Calculates H-C and C-L distances, applies 1.5x rule."""
     if not data_dict:
         return {
             "high": 0.0, "close": 0.0, "low": 0.0, "iv": 0.0,
@@ -454,7 +459,6 @@ def calculate_dominance_metrics(data_dict):
 
 
 def calculate_zone_row_one(wl, wh, bhav_map):
-    """Calculates Line 1 and Line 2 according to mathematical zone formulas."""
     def get_p(s, t):
         return bhav_map.get((s, t), {}).get("close", 0.0)
 
@@ -473,7 +477,6 @@ def calculate_zone_row_one(wl, wh, bhav_map):
 
 
 def get_display_date(now_ist):
-    """Calculates active or next trading day date dynamically."""
     target = now_ist.date()
     current_year_holidays = get_market_holidays()
     
@@ -550,9 +553,7 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
-    # --- SMALLEST ATM STRIKE FOR IV ATM ---
     hlc_atm_strike = get_transition_atm_strikes(spot)
-    # ------------------------------------
 
     sniper1_atm_strike = int(round(spot / 100.0) * 100) if spot > 0 else 23400
     sniper2_atm_strike = hlc_atm_strike
