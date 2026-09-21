@@ -6,13 +6,10 @@ import math
 import os
 import subprocess
 import time
-import holidays
-import numpy as np
-import requests
-from scipy.optimize import brentq
-from scipy.stats import norm
-import yfinance as yf
 import zipfile
+import holidays
+import requests
+import yfinance as yf
 
 # Indian Standard Time (IST) offset
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
@@ -97,112 +94,82 @@ def get_transition_atm_strikes(spot):
     lower_strike = int(math.floor(spot / 50.0) * 50)
     upper_strike = lower_strike + 50
     
-    boundary_strikes = sorted([lower_strike, upper_strike])
+    if (spot - lower_strike) >= (upper_strike - spot):
+        strike_1 = lower_strike
+        strike_2 = upper_strike
+    else:
+        strike_1 = lower_strike - 50 if lower_strike > 50 else lower_strike
+        strike_2 = lower_strike
+
+    boundary_strikes = sorted([int(math.floor(spot / 50.0) * 50), int(math.ceil(spot / 50.0) * 50)])
+    if boundary_strikes[0] == boundary_strikes[1]:
+        boundary_strikes[1] += 50
+        
     smallest_atm = min(boundary_strikes)
-    print(f"🔍 ATM Transition Strikes found: {boundary_strikes} | Smallest ATM chosen for HLC: {smallest_atm}")
+    print(f"🔍 ATM Transition Strikes found: {boundary_strikes} | Smallest ATM chosen for IV: {smallest_atm}")
     return smallest_atm
 
 
-def get_iv_atm_strike(spot):
-    """Finds the true IV ATM strike by rounding the spot price to the nearest 50."""
-    atm = int(round(spot / 50.0) * 50)
-    print(f"🔍 True IV ATM Strike calculated from spot {spot} -> {atm}")
-    return atm
+def get_live_iv_from_nse(atm_strike, target_expiry):
+    """Searches live NSE option chain JSON to extract accurate live Implied Volatility (IV)."""
+    data = fetch_nse_option_chain_data("NIFTY")
+    ce_iv = 0.0
+    pe_iv = 0.0
 
+    if not data:
+        print("⚠️ Live NSE option chain data returned None. IV will fall back to Bhavcopy if available.")
+        return ce_iv, pe_iv
 
-def calculate_black_scholes_iv(option_type, price, spot, strike, expiry_date_str):
-    """Calculates Implied Volatility using the Black-Scholes model as a robust mathematical fallback."""
-    if price <= 0 or spot <= 0 or strike <= 0:
-        return 0.0
+    target_dt = None
+    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y"):
+        try:
+            target_dt = datetime.datetime.strptime(str(target_expiry).strip(), fmt)
+            break
+        except ValueError:
+            continue
 
     try:
-        # Parse target expiry date and use today's date for trade date
-        target_dt = None
-        for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y"):
-            try:
-                target_dt = datetime.datetime.strptime(str(expiry_date_str).strip(), fmt)
-                break
-            except ValueError:
-                continue
+        records = data.get("records", {}).get("data", [])
+        for item in records:
+            if float(item.get("strikePrice", 0)) == float(atm_strike):
+                ce_data = item.get("CE", {})
+                pe_data = item.get("PE", {})
+                
+                if ce_data:
+                    ce_exp_str = str(ce_data.get("expiryDate", "")).strip()
+                    ce_dt = None
+                    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y"):
+                        try:
+                            ce_dt = datetime.datetime.strptime(ce_exp_str, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    
+                    if (target_dt and ce_dt and target_dt == ce_dt) or (ce_exp_str.upper() == str(target_expiry).upper()):
+                        ce_iv = float(ce_data.get("impliedVolatility", 0.0))
 
-        if not target_dt:
-            return 0.0
-
-        today_dt = datetime.datetime.now(IST).replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
-        days_to_expiry = (target_dt - today_dt).days
-        T = max(days_to_expiry, 1) / 365.0  # Minimum 1 day to prevent division by zero
-
-        r = 0.065  # Standard risk-free rate (~6.5% for Indian market)
-
-        # Intrinsic value validation check
-        intrinsic = max(0.0, spot - strike) if option_type == "CE" else max(0.0, strike - spot)
-        if price < intrinsic:
-            return 0.0
-
-        def objective_function(sigma):
-            d1 = (np.log(spot / strike) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
-            d2 = d1 - sigma * np.sqrt(T)
-            if option_type == "CE":
-                bs_price = spot * norm.cdf(d1) - strike * np.exp(-r * T) * norm.cdf(d2)
-            else:
-                bs_price = strike * np.exp(-r * T) * norm.cdf(-d2) - spot * norm.cdf(-d1)
-            return bs_price - price
-
-        implied_vol = brentq(objective_function, 1e-9, 5.0, maxiter=100)
-        return round(float(implied_vol) * 100, 2)
-    except Exception:
-        return 0.0
-
-
-def get_live_iv_from_nse(atm_strike, target_expiry, option_type, price, spot):
-    """Searches live NSE option chain JSON to extract accurate live IV, falling back to Black-Scholes if needed."""
-    data = fetch_nse_option_chain_data("NIFTY")
-    iv_val = 0.0
-
-    if data:
-        target_dt = None
-        for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y"):
-            try:
-                target_dt = datetime.datetime.strptime(str(target_expiry).strip(), fmt)
-                break
-            except ValueError:
-                continue
-
-        try:
-            records = data.get("records", {}).get("data", [])
-            for item in records:
-                if float(item.get("strikePrice", 0)) == float(atm_strike):
-                    opt_data = item.get(option_type, {})
-                    if opt_data:
-                        exp_str = str(opt_data.get("expiryDate", "")).strip()
-                        opt_dt = None
-                        for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y"):
-                            try:
-                                opt_dt = datetime.datetime.strptime(exp_str, fmt)
-                                break
-                            except ValueError:
-                                continue
+                if pe_data:
+                    pe_exp_str = str(pe_data.get("expiryDate", "")).strip()
+                    pe_dt = None
+                    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y"):
+                        try:
+                            pe_dt = datetime.datetime.strptime(pe_exp_str, fmt)
+                            break
+                        except ValueError:
+                            continue
                         
-                        if (target_dt and opt_dt and target_dt == opt_dt) or (exp_str.upper() == str(target_expiry).upper()):
-                            iv_val = float(opt_data.get("impliedVolatility", 0.0))
-                    break
-        except Exception as e:
-            print(f"Error parsing live IV from NSE data: {e}")
+                    if (target_dt and pe_dt and target_dt == pe_dt) or (pe_exp_str.upper() == str(target_expiry).upper()):
+                        pe_iv = float(pe_data.get("impliedVolatility", 0.0))
+                break
+    except Exception as e:
+        print(f"Error parsing live IV from NSE data: {e}")
 
-    # Fallback to Black-Scholes calculation if NSE API didn't provide a valid IV
-    if iv_val <= 0.0:
-        iv_val = calculate_black_scholes_iv(option_type, price, spot, atm_strike, target_expiry)
-
-    return iv_val
+    print(f"🔍 Live IV Lookup for Smallest ATM Strike {atm_strike} -> CE IV: {ce_iv}, PE IV: {pe_iv}")
+    return ce_iv, pe_iv
 
 
-def calculate_asymmetric_time_value(spot, target_expiry, bhav_map=None):
-    """
-    Finds the true IV ATM strike (nearest 50 to spot), then calculates Time Value using:
-    - CE Strike: One step ABOVE the IV ATM strike
-    - PE Strike: One step BELOW the IV ATM strike
-    """
-    iv_atm_strike = get_iv_atm_strike(spot)
+def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None):
+    """Calculates Time Value with refined handling for cross-strike or clean ATM options mapping."""
     strike_map = {}
     
     data = fetch_nse_option_chain_data("NIFTY")
@@ -234,12 +201,11 @@ def calculate_asymmetric_time_value(spot, target_expiry, bhav_map=None):
 
     try:
         sorted_strikes = sorted(strike_map.keys())
-        
-        if iv_atm_strike in sorted_strikes:
-            atm_idx = sorted_strikes.index(iv_atm_strike)
+        if tv_atm_strike in sorted_strikes:
+            atm_idx = sorted_strikes.index(tv_atm_strike)
         else:
-            closest_atm = min(sorted_strikes, key=lambda x: abs(x - iv_atm_strike))
-            atm_idx = sorted_strikes.index(closest_atm)
+            atm_strike = min(sorted_strikes, key=lambda x: abs(x - tv_atm_strike))
+            atm_idx = sorted_strikes.index(atm_strike)
 
         if atm_idx > 0 and atm_idx < len(sorted_strikes) - 1:
             ce_strike_above = sorted_strikes[atm_idx + 1]
@@ -248,8 +214,6 @@ def calculate_asymmetric_time_value(spot, target_expiry, bhav_map=None):
             ce_ltp = strike_map[ce_strike_above]["ce"]
             pe_ltp = strike_map[pe_strike_below]["pe"]
             total_tv = round(ce_ltp + pe_ltp, 2)
-
-            print(f"⏱️ Time Value Calculation -> IV ATM: {sorted_strikes[atm_idx]} | CE Strike (+1): {ce_strike_above} (LTP: {ce_ltp}) | PE Strike (-1): {pe_strike_below} (LTP: {pe_ltp}) | Total TV: {total_tv}")
 
             return {
                 "total": total_tv,
@@ -583,7 +547,6 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     m_bhav = load_bhavcopy_dict(m_exp)
 
     hlc_atm_strike = get_transition_atm_strikes(spot)
-    iv_atm_strike = get_iv_atm_strike(spot)
 
     sniper1_atm_strike = int(round(spot / 100.0) * 100) if spot > 0 else 23400
     sniper2_atm_strike = hlc_atm_strike
@@ -593,32 +556,19 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     target_s2_ce_strike = sniper2_atm_strike + 100
     target_s2_pe_strike = sniper2_atm_strike - 100
 
-    # 1. Fetch HLC metrics using HLC ATM strike
     ce_dict = w_bhav.get((int(hlc_atm_strike), "CE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
     pe_dict = w_bhav.get((int(hlc_atm_strike), "PE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
 
     ce_metrics = calculate_dominance_metrics(ce_dict)
     pe_metrics = calculate_dominance_metrics(pe_dict)
 
-    # 2. Pull IV specifically from Bhavcopy using the IV ATM strike (iv_atm_strike) first
-    iv_bhav_ce = w_bhav.get((int(iv_atm_strike), "CE"), {}).get("iv", 0.0)
-    iv_bhav_pe = w_bhav.get((int(iv_atm_strike), "PE"), {}).get("iv", 0.0)
+    live_ce_iv, live_pe_iv = get_live_iv_from_nse(hlc_atm_strike, w_exp)
+    if live_ce_iv > 0:
+        ce_metrics["iv"] = round(live_ce_iv, 2)
+    if live_pe_iv > 0:
+        pe_metrics["iv"] = round(live_pe_iv, 2)
 
-    if iv_bhav_ce > 0:
-        ce_metrics["iv"] = round(iv_bhav_ce, 2)
-    if iv_bhav_pe > 0:
-        pe_metrics["iv"] = round(iv_bhav_pe, 2)
-
-    # 3. Fallback to Live NSE API / Black-Scholes Formula if Bhavcopy IV is missing or 0.0
-    if ce_metrics["iv"] == 0.0:
-        ce_price = ce_dict.get("close", 0.0)
-        ce_metrics["iv"] = get_live_iv_from_nse(iv_atm_strike, w_exp, "CE", ce_price, spot)
-
-    if pe_metrics["iv"] == 0.0:
-        pe_price = pe_dict.get("close", 0.0)
-        pe_metrics["iv"] = get_live_iv_from_nse(iv_atm_strike, w_exp, "PE", pe_price, spot)
-
-    asymmetric_tv_data = calculate_asymmetric_time_value(spot, w_exp, w_bhav)
+    asymmetric_tv_data = calculate_asymmetric_time_value(hlc_atm_strike, w_exp, w_bhav)
 
     s1_atm_ce_val = w_bhav.get((sniper1_atm_strike, "CE"), {}).get("close", 0.0)
     s1_atm_pe_val = w_bhav.get((sniper1_atm_strike, "PE"), {}).get("close", 0.0)
@@ -667,7 +617,6 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
         "expiryDate": w_exp,
         "spotPrice": spot,
         "hlcAtmStrike": hlc_atm_strike,
-        "ivAtmStrike": iv_atm_strike,
         "ce": ce_metrics,
         "pe": pe_metrics,
         "ceTag": ce_metrics["dominance"], 
