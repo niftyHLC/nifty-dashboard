@@ -15,11 +15,15 @@ import yfinance as yf
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
 def get_market_holidays():
-    """Dynamically computes Indian public and market holidays automatically."""
+    """Dynamically computes Indian public and market holidays for any active 
+    current or future year automatically. Requires zero manual updates for 
+    2028, 2029, and subsequent years.
+    """
     current_year = datetime.datetime.now(IST).year
     in_holidays = holidays.India(years=current_year)
     return set(in_holidays.keys())
 
+# Dynamically loaded holidays for the active year
 MARKET_HOLIDAYS = get_market_holidays()
 
 
@@ -35,13 +39,13 @@ def push_to_github():
         diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
         
         if diff_check.returncode != 0:
-            subprocess.run(["git", "commit", "-m", "Auto-update weekend/holiday/IV status [skip ci]"], check=True)
+            subprocess.run(["git", "commit", "-m", "Auto-update weekend/holiday status [skip ci]"], check=True)
             subprocess.run(["git", "push", "origin", "main"], check=True)
             print("Changes pushed to GitHub successfully.")
         else:
             print("No changes detected in repository. Skipping commit.")
     except Exception as e:
-        print(f"Git push failed: {e}")
+        print(f"Test/Git push failed: {e}")
 
 
 def fetch_live_spot_from_yahoo():
@@ -63,13 +67,12 @@ def fetch_live_spot_from_yahoo():
 
 
 def fetch_nse_option_chain_data(symbol="NIFTY"):
-    """Fetches live option chain JSON directly from NSE using a persistent session and correct cookie headers."""
+    """Fetches the live option chain JSON directly from NSE with proper session cookies."""
     base_url = "https://www.nseindia.com"
     api_url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive"
@@ -78,25 +81,22 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
     session = requests.Session()
     try:
         session.get(base_url, headers=headers, timeout=10)
-        time.sleep(1)
         response = session.get(api_url, headers=headers, timeout=10)
         if response.status_code == 200:
             return response.json()
-        else:
-            print(f"⚠️ NSE API responded with status code: {response.status_code}")
     except Exception as e:
         print(f"Failed to fetch live NSE option chain: {e}")
     return None
 
 
 def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
-    """Searches live NSE option chain JSON to extract accurate live Implied Volatility (IV)."""
+    """Searches the live NSE option chain JSON with robust date parsing to ensure exact match."""
     data = fetch_nse_option_chain_data("NIFTY")
     ce_iv = 0.0
     pe_iv = 0.0
 
     if not data:
-        print("⚠️ Live NSE option chain data returned None. IV will fall back to Bhavcopy if available.")
+        print("⚠️ Live NSE option chain data returned None.")
         return ce_iv, pe_iv
 
     target_dt = None
@@ -136,7 +136,7 @@ def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
                             break
                         except ValueError:
                             continue
-                        
+                            
                     if (target_dt and pe_dt and target_dt == pe_dt) or (pe_exp_str.upper() == str(target_expiry).upper()):
                         pe_iv = float(pe_data.get("impliedVolatility", 0.0))
                 break
@@ -147,8 +147,8 @@ def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
     return ce_iv, pe_iv
 
 
-def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None):
-    """Calculates Asymmetric Cross-Strike Time Value using the TV ATM strike center."""
+def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
+    """Calculates Asymmetric Cross-Strike Time Value."""
     strike_map = {}
     
     data = fetch_nse_option_chain_data("NIFTY")
@@ -168,6 +168,7 @@ def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None)
             print(f"Error parsing live asymmetric time value: {e}")
 
     if not strike_map and bhav_map:
+        print("ℹ️ Using Bhavcopy data for Asymmetric Time Value fallback.")
         all_strikes = set(s for s, t in bhav_map.keys())
         for strike in all_strikes:
             ce_close = bhav_map.get((strike, "CE"), {}).get("close", 0.0)
@@ -180,11 +181,8 @@ def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None)
 
     try:
         sorted_strikes = sorted(strike_map.keys())
-        if tv_atm_strike in sorted_strikes:
-            atm_idx = sorted_strikes.index(tv_atm_strike)
-        else:
-            atm_strike = min(sorted_strikes, key=lambda x: abs(x - tv_atm_strike))
-            atm_idx = sorted_strikes.index(atm_strike)
+        atm_strike = min(sorted_strikes, key=lambda x: abs(x - spot_price))
+        atm_idx = sorted_strikes.index(atm_strike)
 
         if atm_idx > 0 and atm_idx < len(sorted_strikes) - 1:
             ce_strike_above = sorted_strikes[atm_idx + 1]
@@ -205,56 +203,6 @@ def calculate_asymmetric_time_value(tv_atm_strike, target_expiry, bhav_map=None)
         print(f"Error calculating asymmetric time value: {e}")
 
     return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
-
-
-def get_valid_highs(candles, max_count=5):
-    """Identifies unique unbroken swing highs strictly from RED candles, scanning newest to oldest."""
-    valid_highs = []
-    if not candles:
-        return valid_highs
-    
-    n = len(candles)
-    for i in range(n - 1, -1, -1):
-        current = candles[i]
-        
-        if current['close'] >= current['open']:
-            continue
-            
-        high_val = current['high']
-        is_broken = False
-        
-        for j in range(i + 1, n):
-            if candles[j]['high'] > high_val:
-                is_broken = True
-                break
-        
-        if not is_broken and high_val not in valid_highs:
-            valid_highs.append(high_val)
-            
-        if len(valid_highs) >= max_count:
-            break
-            
-    return valid_highs
-
-
-def fetch_daily_candles_for_sellers_area():
-    """Fetches recent daily candles from Yahoo Finance including open price."""
-    try:
-        ticker = yf.Ticker("^NSEI")
-        df = ticker.history(period="6mo", interval="1d")
-        if not df.empty:
-            candles = []
-            for _, row in df.iterrows():
-                candles.append({
-                    "open": float(row["Open"]),
-                    "high": float(row["High"]),
-                    "low": float(row["Low"]),
-                    "close": float(row["Close"])
-                })
-            return candles
-    except Exception as e:
-        print(f"⚠️ Could not fetch daily candles: {e}")
-    return []
 
 
 def download_today_bhavcopy(max_retries=5, delay_seconds=60):
@@ -299,7 +247,7 @@ def download_today_bhavcopy(max_retries=5, delay_seconds=60):
                         with open("bhavcopy.csv", "w", encoding="utf-8") as f:
                             f.write("\n".join(nifty_lines))
 
-                print(f"Successfully downloaded Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
+                print(f"Successfully downloaded TODAY'S Bhavcopy for {now_ist.strftime('%Y-%m-%d')}")
                 return True
             else:
                 print(f"⚠️ Server returned status {response.status_code}. File not ready yet.")
@@ -354,7 +302,7 @@ def load_bhavcopy_dict(target_expiry_str):
                     continue
 
                 opt_type_raw = (cleaned_row.get("OPTNTP") or cleaned_row.get("OPTION_TYP") or 
-                              cleaned_row.get("OPTIONTYPE") or "")
+                                cleaned_row.get("OPTIONTYPE") or "")
                 opt_type = "CE" if "CE" in opt_type_raw.upper() else "PE" if "PE" in opt_type_raw.upper() else ""
 
                 if not opt_type:
@@ -382,7 +330,7 @@ def load_bhavcopy_dict(target_expiry_str):
 
 
 def calculate_dominance_metrics(data_dict):
-    """Calculates H-C and C-L distances, applies 1.5x rule, and keeps IV cleanly structured."""
+    """Calculates H-C and C-L distances and applies the 1.5x rule."""
     if not data_dict:
         return {
             "high": 0.0, "close": 0.0, "low": 0.0, "iv": 0.0,
@@ -527,8 +475,7 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
-    # --- TV ATM SMALLEST STRIKE METHOD ---
-    min_time_val = float('inf')
+    min_diff = float('inf')
     hlc_atm_strike = int(round(spot / 50.0) * 50) if spot > 0 else 23450
 
     for (strike, opt_type), d_val in w_bhav.items():
@@ -536,23 +483,10 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
             ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
             pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
             if ce_close > 0 and pe_close > 0:
-                time_val = ce_close + pe_close
-                if time_val < min_time_val:
-                    min_time_val = time_val
-
-    candidate_strikes = []
-    for (strike, opt_type), d_val in w_bhav.items():
-        if abs(strike - spot) <= 500:
-            ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
-            pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
-            if ce_close > 0 and pe_close > 0:
-                time_val = ce_close + pe_close
-                if abs(time_val - min_time_val) <= 0.5:
-                    candidate_strikes.append(strike)
-
-    if candidate_strikes:
-        hlc_atm_strike = min(candidate_strikes)
-    # ------------------------------------
+                diff = abs(ce_close - pe_close)
+                if diff < min_diff:
+                    min_diff = diff
+                    hlc_atm_strike = strike
 
     sniper1_atm_strike = int(round(spot / 100.0) * 100) if spot > 0 else 23400
     sniper2_atm_strike = hlc_atm_strike
@@ -574,7 +508,7 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     if live_pe_iv > 0:
         pe_metrics["iv"] = round(live_pe_iv, 2)
 
-    asymmetric_tv_data = calculate_asymmetric_time_value(hlc_atm_strike, w_exp, w_bhav)
+    asymmetric_tv_data = calculate_asymmetric_time_value(spot, w_exp, w_bhav)
 
     s1_atm_ce_val = w_bhav.get((sniper1_atm_strike, "CE"), {}).get("close", 0.0)
     s1_atm_pe_val = w_bhav.get((sniper1_atm_strike, "PE"), {}).get("close", 0.0)
@@ -593,22 +527,6 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     min_demand_val = round(hlc_atm_strike - pe_metrics["close"], 2)
     max_supply_val = round(hlc_atm_strike + (ce_metrics["close"] + pe_metrics["close"]), 2)
     max_demand_val = round(hlc_atm_strike - (ce_metrics["close"] + pe_metrics["close"]), 2)
-
-    # Fetch daily candles and grab the 5 unbroken red swing highs from newest to oldest
-    daily_candles = fetch_daily_candles_for_sellers_area()
-    dynamic_sellers_highs = get_valid_highs(daily_candles, max_count=5)
-
-    # --- REQUIREMENT: 5 HIGHS ALWAYS ABOVE MAX SUPPLY ---
-    # If any of the 5 swing highs are lower than max_supply_val, shift or bump them strictly above max_supply_val
-    adjusted_sellers_highs = []
-    for h in dynamic_sellers_highs:
-        if h <= max_supply_val:
-            # Ensure it sits above max supply with a small proportional bump or gap
-            adjusted_sellers_highs.append(round(max_supply_val + (max_supply_val - h) + 25.0, 2))
-        else:
-            adjusted_sellers_highs.append(h)
-    dynamic_sellers_highs = adjusted_sellers_highs
-    # ----------------------------------------------------
 
     wl = int(math.floor(spot / 100.0) * 100) if spot > 0 else 23300
     wh = int(math.ceil(spot / 100.0) * 100) if spot > 0 else 23400
@@ -640,15 +558,6 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
         "minDemand": min_demand_val,
         "maxSupply": max_supply_val,
         "maxDemand": max_demand_val,
-        "sellersArea": {
-            "min": min_supply_val,
-            "max": max_supply_val,
-            "validUnbrokenHighs": dynamic_sellers_highs
-        },
-        "buyersArea": {
-            "min": min_demand_val,
-            "max": max_demand_val
-        },
         "weeklyZones": weekly_zones,
         "monthlyZones": monthly_zones,
         "spotHigh": spot_high,
