@@ -92,17 +92,6 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
     return None
 
 
-def get_transition_atm_strikes(spot):
-    """Finds the two ATM boundary transition strikes and returns the smallest one."""
-    lower_strike = int(math.floor(spot / 50.0) * 50)
-    upper_strike = lower_strike + 50
-    
-    boundary_strikes = sorted([lower_strike, upper_strike])
-    smallest_atm = min(boundary_strikes)
-    print(f"🔍 ATM Transition Strikes found: {boundary_strikes} | Smallest ATM chosen for HLC: {smallest_atm}")
-    return smallest_atm
-
-
 def get_iv_atm_strike(spot):
     """Finds the true IV ATM strike by rounding the spot price to the nearest 50."""
     atm = int(round(spot / 50.0) * 50)
@@ -362,7 +351,6 @@ def load_bhavcopy_dict(target_expiry_input):
     if not os.path.exists("bhavcopy.csv"):
         return bhav_map
 
-    # Parse target expiry into a strict datetime.date object
     target_dt = None
     date_formats = ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y")
     
@@ -405,7 +393,7 @@ def load_bhavcopy_dict(target_expiry_input):
                     continue
 
                 expiry_raw = (cleaned_row.get("XPRYDT") or cleaned_row.get("EXPIRY_DT") or 
-                              cleaned_row.get("EXPIRY") or "").strip()
+                            cleaned_row.get("EXPIRY") or "").strip()
                 
                 row_dt = None
                 for fmt in date_formats:
@@ -415,7 +403,6 @@ def load_bhavcopy_dict(target_expiry_input):
                     except ValueError:
                         continue
                 
-                # Strict date object comparison to prevent matching wrong expiries
                 if row_dt and row_dt == target_dt:
                     open_p = float(cleaned_row.get("OPENPRIC") or cleaned_row.get("OPEN") or 0.0)
                     high = float(cleaned_row.get("HGHPRIC") or cleaned_row.get("HIGH") or 0.0)
@@ -577,7 +564,20 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
-    hlc_atm_strike = get_transition_atm_strikes(spot)
+    # Calculate HLC ATM strike using Minimum CE/PE Close Difference
+    min_diff = float('inf')
+    hlc_atm_strike = int(round(spot / 50.0) * 50) if spot > 0 else 23450
+
+    for (strike, opt_type), d_val in w_bhav.items():
+        if abs(strike - spot) <= 500:
+            ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
+            pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
+            if ce_close > 0 and pe_close > 0:
+                diff = abs(ce_close - pe_close)
+                if diff < min_diff:
+                    min_diff = diff
+                    hlc_atm_strike = strike
+
     iv_atm_strike = get_iv_atm_strike(spot)
 
     sniper1_atm_strike = int(round(spot / 100.0) * 100) if spot > 0 else 23400
