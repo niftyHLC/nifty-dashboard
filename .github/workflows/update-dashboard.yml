@@ -27,14 +27,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests yfinance numpy scipy holidays
 
-      - name: Run update script
+      - name: Run update script and push changes
         run: |
           python update.py
-
-      - name: Check for changes and push
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.json bhavcopy.csv || true
-          git diff --quiet && git diff --cached --quiet || git commit -m "Automated data update [skip ci]"
-          git push
