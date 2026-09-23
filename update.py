@@ -25,7 +25,6 @@ def get_market_holidays():
 
 MARKET_HOLIDAYS = get_market_holidays()
 
-
 def fetch_live_spot_from_yahoo():
     """Fetches real-time or end-of-day Nifty 50 High, Low, and Close prices from Yahoo Finance with fallback."""
     try:
@@ -39,10 +38,9 @@ def fetch_live_spot_from_yahoo():
                 return spot_close, spot_high, spot_low
     except Exception as e:
         print(f"Failed to fetch spot from Yahoo Finance: {e}")
-    
+     
     print("⚠️ Using fallback spot values due to Yahoo Finance connection block.")
     return 23398.10, 23448.10, 23231.40
-
 
 def fetch_nse_option_chain_data(symbol="NIFTY"):
     """Fetches live option chain JSON directly from NSE using a persistent session and correct cookie headers."""
@@ -70,13 +68,11 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
         print(f"Failed to fetch live NSE option chain: {e}")
     return None
 
-
 def get_iv_atm_strike(spot):
     """Finds the true IV ATM strike by rounding the spot price to the nearest 50."""
     atm = int(round(spot / 50.0) * 50)
     print(f"🔍 True IV ATM Strike calculated from spot {spot} -> {atm}")
     return atm
-
 
 def calculate_black_scholes_iv(option_type, price, spot, strike, expiry_date_str):
     """Calculates Implied Volatility using the Black-Scholes model as a robust mathematical fallback."""
@@ -119,7 +115,6 @@ def calculate_black_scholes_iv(option_type, price, spot, strike, expiry_date_str
     except Exception:
         return 0.0
 
-
 def get_live_iv_from_nse(atm_strike, target_expiry, option_type, price, spot):
     """Searches live NSE option chain JSON to extract accurate live IV, falling back to Black-Scholes if needed."""
     data = fetch_nse_option_chain_data("NIFTY")
@@ -148,7 +143,7 @@ def get_live_iv_from_nse(atm_strike, target_expiry, option_type, price, spot):
                                 break
                             except ValueError:
                                 continue
-                        
+                      
                         if (target_dt and opt_dt and target_dt == opt_dt) or (exp_str.upper() == str(target_expiry).upper()):
                             iv_val = float(opt_data.get("impliedVolatility", 0.0))
                     break
@@ -159,7 +154,6 @@ def get_live_iv_from_nse(atm_strike, target_expiry, option_type, price, spot):
         iv_val = calculate_black_scholes_iv(option_type, price, spot, atm_strike, target_expiry)
 
     return iv_val
-
 
 def calculate_asymmetric_time_value(spot, target_expiry, bhav_map=None):
     iv_atm_strike = get_iv_atm_strike(spot)
@@ -221,7 +215,6 @@ def calculate_asymmetric_time_value(spot, target_expiry, bhav_map=None):
 
     return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
 
-
 def get_valid_highs(candles, max_count=5):
     valid_highs = []
     if not candles:
@@ -249,7 +242,6 @@ def get_valid_highs(candles, max_count=5):
             
     return valid_highs
 
-
 def fetch_daily_candles_for_sellers_area():
     try:
         ticker = yf.Ticker("^NSEI")
@@ -267,7 +259,6 @@ def fetch_daily_candles_for_sellers_area():
     except Exception as e:
         print(f"⚠️ Could not fetch daily candles: {e}")
     return []
-
 
 def download_today_bhavcopy(max_retries=5, delay_seconds=60):
     headers = {
@@ -324,7 +315,6 @@ def download_today_bhavcopy(max_retries=5, delay_seconds=60):
     print("ℹ️ Max retries reached for Bhavcopy. Proceeding with fallback...")
     return False
 
-
 def load_bhavcopy_dict(target_expiry_input):
     bhav_map = {}
     if not os.path.exists("bhavcopy.csv"):
@@ -378,7 +368,6 @@ def load_bhavcopy_dict(target_expiry_input):
                         continue
                 
                 if row_dt and row_dt == target_dt:
-                    # STRICT OHLC MAPPING (Excluding SETTLE_PR to prevent inflated values)
                     open_p = float(cleaned_row.get("OPENPRIC") or cleaned_row.get("OPEN") or 0.0)
                     high = float(cleaned_row.get("HGHPRIC") or cleaned_row.get("HIGH") or 0.0)
                     low = float(cleaned_row.get("LWPRIC") or cleaned_row.get("LOW") or 0.0)
@@ -399,7 +388,6 @@ def load_bhavcopy_dict(target_expiry_input):
         print(f"Error reading bhavcopy into dict: {e}")
 
     return bhav_map
-
 
 def calculate_dominance_metrics(data_dict):
     if not data_dict:
@@ -454,7 +442,6 @@ def calculate_dominance_metrics(data_dict):
         "tagClass": tag_class
     }
 
-
 def calculate_zone_row_one(wl, wh, bhav_map):
     def get_p(s, t):
         return bhav_map.get((s, t), {}).get("close", 0.0)
@@ -471,7 +458,6 @@ def calculate_zone_row_one(wl, wh, bhav_map):
         "line1": round(wl + sum1, 2),
         "line2": round(wh - sum2, 2)
     }
-
 
 def get_display_date(now_ist):
     target = now_ist.date()
@@ -490,7 +476,6 @@ def get_display_date(now_ist):
             break
             
     return target.strftime("%d %b %Y").upper()
-
 
 def push_to_github():
     try:
@@ -511,7 +496,6 @@ def push_to_github():
             print("No changes detected in repository. Skipping commit.")
     except Exception as e:
         print(f"Git push failed: {e}")
-
 
 def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     now_ist = datetime.datetime.now(IST)
@@ -571,19 +555,26 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
-    # Calculate HLC ATM strike using Minimum CE/PE Close Difference within a strict ±200 band
+    # Calculate HLC ATM strike using Minimum CE/PE Close Difference with dynamic band fallback
     min_diff = float('inf')
     hlc_atm_strike = int(round(spot / 50.0) * 50) if spot > 0 else 23450
 
-    for (strike, opt_type), d_val in w_bhav.items():
-        if abs(strike - spot) <= 200:
-            ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
-            pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
-            if ce_close > 0 and pe_close > 0:
-                diff = abs(ce_close - pe_close)
-                if diff < min_diff:
-                    min_diff = diff
-                    hlc_atm_strike = strike
+    for band in [200, 300, 500]:
+        found_match = False
+        for (strike, opt_type), d_val in w_bhav.items():
+            if abs(strike - spot) <= band:
+                ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
+                pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
+                if ce_close > 0 and pe_close > 0:
+                    diff = abs(ce_close - pe_close)
+                    if diff < min_diff:
+                        min_diff = diff
+                        hlc_atm_strike = strike
+                        found_match = True
+        if found_match:
+            break
+            
+    print(f"🎯 Selected HLC ATM Strike: {hlc_atm_strike} (Min CE-PE Difference: {min_diff:.2f})")
 
     iv_atm_strike = get_iv_atm_strike(spot)
 
@@ -711,7 +702,6 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
         
     print(f"Data saved successfully. Active Weekly Expiry: {w_exp} | Active Monthly Expiry: {m_exp}")
     push_to_github()
-
 
 if __name__ == "__main__":
     now_ist = datetime.datetime.now(IST)
