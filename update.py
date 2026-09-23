@@ -26,27 +26,6 @@ def get_market_holidays():
 MARKET_HOLIDAYS = get_market_holidays()
 
 
-def push_to_github():
-    try:
-        subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
-        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
-        
-        subprocess.run(["git", "add", "-f", "data.json"], check=False)
-        if os.path.exists("bhavcopy.csv"):
-            subprocess.run(["git", "add", "-f", "bhavcopy.csv"], check=False)
-        
-        diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
-        
-        if diff_check.returncode != 0:
-            subprocess.run(["git", "commit", "-m", "Auto-update weekend/holiday/IV status [skip ci]"], check=True)
-            subprocess.run(["git", "push", "origin", "main"], check=True)
-            print("Changes pushed to GitHub successfully.")
-        else:
-            print("No changes detected in repository. Skipping commit.")
-    except Exception as e:
-        print(f"Git push failed: {e}")
-
-
 def fetch_live_spot_from_yahoo():
     """Fetches real-time or end-of-day Nifty 50 High, Low, and Close prices from Yahoo Finance with fallback."""
     try:
@@ -366,7 +345,6 @@ def load_bhavcopy_dict(target_expiry_input):
                 continue
 
     if not target_dt:
-        print(f"⚠️ Could not parse target expiry for bhavcopy loading: {target_expiry_input}")
         return bhav_map
 
     try:
@@ -374,27 +352,23 @@ def load_bhavcopy_dict(target_expiry_input):
             reader = csv.DictReader(f)
             for row in reader:
                 cleaned_row = {k.strip().upper(): (v.strip() if v else "") for k, v in row.items() if k}
-                symbol = cleaned_row.get("TCKRSYMB") or cleaned_row.get("SYMBOL") or cleaned_row.get("FININSTRNM") or ""
+                symbol = cleaned_row.get("TCKRSYMB") or cleaned_row.get("SYMBOL") or ""
                 if "NIFTY" not in symbol.upper():
                     continue
 
-                strike_raw = (cleaned_row.get("STRKPRIC") or cleaned_row.get("STRIKEPRIC") or 
-                           cleaned_row.get("STRIKE_PR") or cleaned_row.get("STRIKE") or "0")
+                strike_raw = cleaned_row.get("STRKPRIC") or cleaned_row.get("STRIKE_PR") or cleaned_row.get("STRIKE") or "0"
                 try:
                     row_strike = int(round(float(strike_raw)))
                 except ValueError:
                     continue
 
-                opt_type_raw = (cleaned_row.get("OPTNTP") or cleaned_row.get("OPTION_TYP") or 
-                              cleaned_row.get("OPTIONTYPE") or "")
+                opt_type_raw = cleaned_row.get("OPTNTP") or cleaned_row.get("OPTION_TYP") or ""
                 opt_type = "CE" if "CE" in opt_type_raw.upper() else "PE" if "PE" in opt_type_raw.upper() else ""
 
                 if not opt_type:
                     continue
 
-                expiry_raw = (cleaned_row.get("XPRYDT") or cleaned_row.get("EXPIRY_DT") or 
-                            cleaned_row.get("EXPIRY") or "").strip()
-                
+                expiry_raw = (cleaned_row.get("XPRYDT") or cleaned_row.get("EXPIRY_DT") or "").strip()
                 row_dt = None
                 for fmt in date_formats:
                     try:
@@ -404,16 +378,22 @@ def load_bhavcopy_dict(target_expiry_input):
                         continue
                 
                 if row_dt and row_dt == target_dt:
+                    # STRICT OHLC MAPPING (Excluding SETTLE_PR to prevent inflated values)
                     open_p = float(cleaned_row.get("OPENPRIC") or cleaned_row.get("OPEN") or 0.0)
                     high = float(cleaned_row.get("HGHPRIC") or cleaned_row.get("HIGH") or 0.0)
                     low = float(cleaned_row.get("LWPRIC") or cleaned_row.get("LOW") or 0.0)
-                    close = float(cleaned_row.get("CLSPRIC") or cleaned_row.get("CLOSE") or cleaned_row.get("SETTLE_PR") or 0.0)
+                    close = float(cleaned_row.get("CLSPRIC") or cleaned_row.get("CLOSE") or 0.0)
                     chg_oi = float(cleaned_row.get("CHGINOI") or cleaned_row.get("CHG_IN_OI") or 0.0)
-                    iv = float(cleaned_row.get("IV") or cleaned_row.get("IMPLIED_VOL") or cleaned_row.get("IMPL_VOL") or cleaned_row.get("CLIENT_IV") or 0.0)
+                    iv = float(cleaned_row.get("IV") or cleaned_row.get("IMPLIED_VOL") or 0.0)
 
-                    if high > 0 or low > 0 or close > 0:
+                    if close > 0:
                         bhav_map[(row_strike, opt_type)] = {
-                            "open": open_p, "high": high, "low": low, "close": close, "chg_oi": chg_oi, "iv": iv
+                            "open": open_p, 
+                            "high": high if high > 0 else close, 
+                            "low": low if low > 0 else close, 
+                            "close": close, 
+                            "chg_oi": chg_oi, 
+                            "iv": iv
                         }
     except Exception as e:
         print(f"Error reading bhavcopy into dict: {e}")
@@ -512,6 +492,27 @@ def get_display_date(now_ist):
     return target.strftime("%d %b %Y").upper()
 
 
+def push_to_github():
+    try:
+        subprocess.run(["git", "config", "--global", "user.name", "github-actions[bot]"], check=True)
+        subprocess.run(["git", "config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
+        
+        subprocess.run(["git", "add", "-f", "data.json"], check=False)
+        if os.path.exists("bhavcopy.csv"):
+            subprocess.run(["git", "add", "-f", "bhavcopy.csv"], check=False)
+        
+        diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
+        
+        if diff_check.returncode != 0:
+            subprocess.run(["git", "commit", "-m", "Auto-update weekend/holiday/IV status [skip ci]"], check=True)
+            subprocess.run(["git", "push", "origin", "main"], check=True)
+            print("Changes pushed to GitHub successfully.")
+        else:
+            print("No changes detected in repository. Skipping commit.")
+    except Exception as e:
+        print(f"Git push failed: {e}")
+
+
 def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     now_ist = datetime.datetime.now(IST)
     
@@ -570,12 +571,12 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
-    # Calculate HLC ATM strike using Minimum CE/PE Close Difference
+    # Calculate HLC ATM strike using Minimum CE/PE Close Difference within a strict ±200 band
     min_diff = float('inf')
     hlc_atm_strike = int(round(spot / 50.0) * 50) if spot > 0 else 23450
 
     for (strike, opt_type), d_val in w_bhav.items():
-        if abs(strike - spot) <= 500:
+        if abs(strike - spot) <= 200:
             ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
             pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
             if ce_close > 0 and pe_close > 0:
