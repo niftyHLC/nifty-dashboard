@@ -431,15 +431,9 @@ def calculate_dominance_metrics(data_dict):
             "tagClass": "tag-neutral"
         }
     
-    close = data_dict.get("close", 0.0)
     high = data_dict.get("high", 0.0)
-    if high <= 0:
-        high = close
-        
     low = data_dict.get("low", 0.0)
-    if low <= 0:
-        low = close
-        
+    close = data_dict.get("close", 0.0)
     iv = data_dict.get("iv", 0.0)
     
     hc = round(high - close, 2)
