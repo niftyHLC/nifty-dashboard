@@ -6,10 +6,13 @@ import math
 import os
 import subprocess
 import time
-import zipfile
 import holidays
+import numpy as np
 import requests
+from scipy.optimize import brentq
+from scipy.stats import norm
 import yfinance as yf
+import zipfile
 
 # Indian Standard Time (IST) offset
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
@@ -77,11 +80,8 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
 
     session = requests.Session()
     try:
-        # Step 1: Hit main website first to establish necessary cookies and bypass basic Cloudflare/WAF walls
         session.get(base_url, headers=headers, timeout=10)
         time.sleep(1)
-        
-        # Step 2: Request the actual JSON API with the cookies captured from session
         response = session.get(api_url, headers=headers, timeout=10)
         if response.status_code == 200:
             return response.json()
@@ -92,66 +92,109 @@ def fetch_nse_option_chain_data(symbol="NIFTY"):
     return None
 
 
-def get_live_iv_from_nse(hlc_atm_strike, target_expiry):
-    """Searches live NSE option chain JSON to extract accurate live Implied Volatility (IV)."""
-    data = fetch_nse_option_chain_data("NIFTY")
-    ce_iv = 0.0
-    pe_iv = 0.0
+def get_transition_atm_strikes(spot):
+    """Finds the two ATM boundary transition strikes and returns the smallest one."""
+    lower_strike = int(math.floor(spot / 50.0) * 50)
+    upper_strike = lower_strike + 50
+    
+    boundary_strikes = sorted([lower_strike, upper_strike])
+    smallest_atm = min(boundary_strikes)
+    print(f"🔍 ATM Transition Strikes found: {boundary_strikes} | Smallest ATM chosen for HLC: {smallest_atm}")
+    return smallest_atm
 
-    if not data:
-        print("⚠️ Live NSE option chain data returned None. IV will fall back to Bhavcopy if available.")
-        return ce_iv, pe_iv
 
-    target_dt = None
-    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y"):
-        try:
-            target_dt = datetime.datetime.strptime(str(target_expiry).strip(), fmt)
-            break
-        except ValueError:
-            continue
+def get_iv_atm_strike(spot):
+    """Finds the true IV ATM strike by rounding the spot price to the nearest 50."""
+    atm = int(round(spot / 50.0) * 50)
+    print(f"🔍 True IV ATM Strike calculated from spot {spot} -> {atm}")
+    return atm
+
+
+def calculate_black_scholes_iv(option_type, price, spot, strike, expiry_date_str):
+    """Calculates Implied Volatility using the Black-Scholes model as a robust mathematical fallback."""
+    if price <= 0 or spot <= 0 or strike <= 0:
+        return 0.0
 
     try:
-        records = data.get("records", {}).get("data", [])
-        for item in records:
-            if float(item.get("strikePrice", 0)) == float(hlc_atm_strike):
-                ce_data = item.get("CE", {})
-                pe_data = item.get("PE", {})
-                
-                if ce_data:
-                    ce_exp_str = str(ce_data.get("expiryDate", "")).strip()
-                    ce_dt = None
-                    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y"):
-                        try:
-                            ce_dt = datetime.datetime.strptime(ce_exp_str, fmt)
-                            break
-                        except ValueError:
-                            continue
-                    
-                    if (target_dt and ce_dt and target_dt == ce_dt) or (ce_exp_str.upper() == str(target_expiry).upper()):
-                        ce_iv = float(ce_data.get("impliedVolatility", 0.0))
-
-                if pe_data:
-                    pe_exp_str = str(pe_data.get("expiryDate", "")).strip()
-                    pe_dt = None
-                    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y"):
-                        try:
-                            pe_dt = datetime.datetime.strptime(pe_exp_str, fmt)
-                            break
-                        except ValueError:
-                            continue
-                        
-                    if (target_dt and pe_dt and target_dt == pe_dt) or (pe_exp_str.upper() == str(target_expiry).upper()):
-                        pe_iv = float(pe_data.get("impliedVolatility", 0.0))
+        target_dt = None
+        for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y"):
+            try:
+                target_dt = datetime.datetime.strptime(str(expiry_date_str).strip(), fmt)
                 break
-    except Exception as e:
-        print(f"Error parsing live IV from NSE data: {e}")
+            except ValueError:
+                continue
 
-    print(f"🔍 Live IV Lookup for Strike {hlc_atm_strike} -> CE IV: {ce_iv}, PE IV: {pe_iv}")
-    return ce_iv, pe_iv
+        if not target_dt:
+            return 0.0
+
+        today_dt = datetime.datetime.now(IST).replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
+        days_to_expiry = (target_dt - today_dt).days
+        T = max(days_to_expiry, 1) / 365.0
+
+        r = 0.065  
+
+        intrinsic = max(0.0, spot - strike) if option_type == "CE" else max(0.0, strike - spot)
+        if price < intrinsic:
+            return 0.0
+
+        def objective_function(sigma):
+            d1 = (np.log(spot / strike) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
+            d2 = d1 - sigma * np.sqrt(T)
+            if option_type == "CE":
+                bs_price = spot * norm.cdf(d1) - strike * np.exp(-r * T) * norm.cdf(d2)
+            else:
+                bs_price = strike * np.exp(-r * T) * norm.cdf(-d2) - spot * norm.cdf(-d1)
+            return bs_price - price
+
+        implied_vol = brentq(objective_function, 1e-9, 5.0, maxiter=100)
+        return round(float(implied_vol) * 100, 2)
+    except Exception:
+        return 0.0
 
 
-def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
-    """Calculates Asymmetric Cross-Strike Time Value."""
+def get_live_iv_from_nse(atm_strike, target_expiry, option_type, price, spot):
+    """Searches live NSE option chain JSON to extract accurate live IV, falling back to Black-Scholes if needed."""
+    data = fetch_nse_option_chain_data("NIFTY")
+    iv_val = 0.0
+
+    if data:
+        target_dt = None
+        for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y"):
+            try:
+                target_dt = datetime.datetime.strptime(str(target_expiry).strip(), fmt)
+                break
+            except ValueError:
+                continue
+
+        try:
+            records = data.get("records", {}).get("data", [])
+            for item in records:
+                if float(item.get("strikePrice", 0)) == float(atm_strike):
+                    opt_data = item.get(option_type, {})
+                    if opt_data:
+                        exp_str = str(opt_data.get("expiryDate", "")).strip()
+                        opt_dt = None
+                        for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y"):
+                            try:
+                                opt_dt = datetime.datetime.strptime(exp_str, fmt)
+                                break
+                            except ValueError:
+                                continue
+                        
+                        if (target_dt and opt_dt and target_dt == opt_dt) or (exp_str.upper() == str(target_expiry).upper()):
+                            iv_val = float(opt_data.get("impliedVolatility", 0.0))
+                    break
+        except Exception as e:
+            print(f"Error parsing live IV from NSE data: {e}")
+
+    if iv_val <= 0.0:
+        iv_val = calculate_black_scholes_iv(option_type, price, spot, atm_strike, target_expiry)
+
+    return iv_val
+
+
+def calculate_asymmetric_time_value(spot, target_expiry, bhav_map=None):
+    iv_atm_strike = get_iv_atm_strike(spot)
     strike_map = {}
     
     data = fetch_nse_option_chain_data("NIFTY")
@@ -168,7 +211,7 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
                     if ce_ltp > 0 or pe_ltp > 0:
                         strike_map[strike] = {"ce": ce_ltp, "pe": pe_ltp}
         except Exception as e:
-            print(f"Error parsing live asymmetric time value: {e}")
+            print(f"Error parsing live time value: {e}")
 
     if not strike_map and bhav_map:
         all_strikes = set(s for s, t in bhav_map.keys())
@@ -183,8 +226,12 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
 
     try:
         sorted_strikes = sorted(strike_map.keys())
-        atm_strike = min(sorted_strikes, key=lambda x: abs(x - spot_price))
-        atm_idx = sorted_strikes.index(atm_strike)
+        
+        if iv_atm_strike in sorted_strikes:
+            atm_idx = sorted_strikes.index(iv_atm_strike)
+        else:
+            closest_atm = min(sorted_strikes, key=lambda x: abs(x - iv_atm_strike))
+            atm_idx = sorted_strikes.index(closest_atm)
 
         if atm_idx > 0 and atm_idx < len(sorted_strikes) - 1:
             ce_strike_above = sorted_strikes[atm_idx + 1]
@@ -202,23 +249,27 @@ def calculate_asymmetric_time_value(spot_price, target_expiry, bhav_map=None):
                 "peLtp": pe_ltp
             }
     except Exception as e:
-        print(f"Error calculating asymmetric time value: {e}")
+        print(f"Error calculating time value: {e}")
 
     return {"total": 0.0, "ceStrike": 0, "ceLtp": 0.0, "peStrike": 0, "peLtp": 0.0}
 
 
 def get_valid_highs(candles, max_count=5):
-    """Identifies unique unbroken swing highs for Resistance/Sellers Area."""
     valid_highs = []
     if not candles:
         return valid_highs
     
-    for i, current in enumerate(candles):
+    n = len(candles)
+    for i in range(n - 1, -1, -1):
+        current = candles[i]
+        if current['close'] >= current['open']:
+            continue
+            
         high_val = current['high']
         is_broken = False
         
-        for future_candle in candles[i+1:]:
-            if future_candle['high'] > high_val:
+        for j in range(i + 1, n):
+            if candles[j]['high'] > high_val:
                 is_broken = True
                 break
         
@@ -231,27 +282,26 @@ def get_valid_highs(candles, max_count=5):
     return valid_highs
 
 
-def fetch_intraday_candles_for_sellers_area():
-    """Fetches recent intraday candles from Yahoo Finance."""
+def fetch_daily_candles_for_sellers_area():
     try:
         ticker = yf.Ticker("^NSEI")
-        df = ticker.history(period="5d", interval="15m")
+        df = ticker.history(period="6mo", interval="1d")
         if not df.empty:
             candles = []
             for _, row in df.iterrows():
                 candles.append({
+                    "open": float(row["Open"]),
                     "high": float(row["High"]),
                     "low": float(row["Low"]),
                     "close": float(row["Close"])
                 })
             return candles
     except Exception as e:
-        print(f"⚠️ Could not fetch intraday candles: {e}")
+        print(f"⚠️ Could not fetch daily candles: {e}")
     return []
 
 
 def download_today_bhavcopy(max_retries=5, delay_seconds=60):
-    """Downloads official Bhavcopy directly from NSE archives with built-in retry-and-sleep loop."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
@@ -266,7 +316,7 @@ def download_today_bhavcopy(max_retries=5, delay_seconds=60):
     
     for attempt in range(1, max_retries + 1):
         try:
-            print(f"⏳ Attempt {attempt}/{max_retries}: Checking/Downloading Bhavcopy for {now_ist.strftime('%Y-%m-%d')}...")
+            print(f"⏳ Attempt {attempt}/{max_retries}: Downloading Bhavcopy for {now_ist.strftime('%Y-%m-%d')}...")
             response = requests.get(url, headers=headers, timeout=30)
             
             if response.status_code == 200 and len(response.content) > 1000:
@@ -307,28 +357,29 @@ def download_today_bhavcopy(max_retries=5, delay_seconds=60):
     return False
 
 
-def load_bhavcopy_dict(target_expiry_str):
+def load_bhavcopy_dict(target_expiry_input):
     bhav_map = {}
     if not os.path.exists("bhavcopy.csv"):
         return bhav_map
 
-    possible_expiries = set()
-    clean_target = target_expiry_str.strip().upper()
-    possible_expiries.add(clean_target)
-    
+    # Parse target expiry into a strict datetime.date object
+    target_dt = None
     date_formats = ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y")
     
-    dt_obj = None
-    for fmt in date_formats:
-        try:
-            dt_obj = datetime.datetime.strptime(clean_target, fmt)
-            break
-        except ValueError:
-            continue
-
-    if dt_obj:
+    if isinstance(target_expiry_input, datetime.date) and not isinstance(target_expiry_input, datetime.datetime):
+        target_dt = target_expiry_input
+    else:
+        clean_target = str(target_expiry_input).strip()
         for fmt in date_formats:
-            possible_expiries.add(dt_obj.strftime(fmt).upper())
+            try:
+                target_dt = datetime.datetime.strptime(clean_target, fmt).date()
+                break
+            except ValueError:
+                continue
+
+    if not target_dt:
+        print(f"⚠️ Could not parse target expiry for bhavcopy loading: {target_expiry_input}")
+        return bhav_map
 
     try:
         with open("bhavcopy.csv", mode="r", encoding="utf-8", errors="ignore") as f:
@@ -354,9 +405,18 @@ def load_bhavcopy_dict(target_expiry_str):
                     continue
 
                 expiry_raw = (cleaned_row.get("XPRYDT") or cleaned_row.get("EXPIRY_DT") or 
-                              cleaned_row.get("EXPIRY") or "").strip().upper()
+                              cleaned_row.get("EXPIRY") or "").strip()
                 
-                if any(expiry_raw == exp for exp in possible_expiries):
+                row_dt = None
+                for fmt in date_formats:
+                    try:
+                        row_dt = datetime.datetime.strptime(expiry_raw, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+                
+                # Strict date object comparison to prevent matching wrong expiries
+                if row_dt and row_dt == target_dt:
                     open_p = float(cleaned_row.get("OPENPRIC") or cleaned_row.get("OPEN") or 0.0)
                     high = float(cleaned_row.get("HGHPRIC") or cleaned_row.get("HIGH") or 0.0)
                     low = float(cleaned_row.get("LWPRIC") or cleaned_row.get("LOW") or 0.0)
@@ -375,7 +435,6 @@ def load_bhavcopy_dict(target_expiry_str):
 
 
 def calculate_dominance_metrics(data_dict):
-    """Calculates H-C and C-L distances, applies 1.5x rule, and keeps IV cleanly structured."""
     if not data_dict:
         return {
             "high": 0.0, "close": 0.0, "low": 0.0, "iv": 0.0,
@@ -424,7 +483,6 @@ def calculate_dominance_metrics(data_dict):
 
 
 def calculate_zone_row_one(wl, wh, bhav_map):
-    """Calculates Line 1 and Line 2 according to mathematical zone formulas."""
     def get_p(s, t):
         return bhav_map.get((s, t), {}).get("close", 0.0)
 
@@ -443,7 +501,6 @@ def calculate_zone_row_one(wl, wh, bhav_map):
 
 
 def get_display_date(now_ist):
-    """Calculates active or next trading day date dynamically."""
     target = now_ist.date()
     current_year_holidays = get_market_holidays()
     
@@ -476,12 +533,12 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
                 cleaned_row = {k.strip().upper(): (v.strip() if v else "") for k, v in row.items() if k}
                 exp = cleaned_row.get("XPRYDT") or cleaned_row.get("EXPIRY_DT") or cleaned_row.get("EXPIRY")
                 if exp:
-                    exp_clean = exp.strip().upper()
+                    exp_clean = exp.strip()
                     dt_parsed = None
                     date_formats = ("%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%y", "%d-%m-%Y", "%d%b%Y", "%d%b%y")
                     for fmt in date_formats:
                         try:
-                            dt_parsed = datetime.datetime.strptime(exp_clean, fmt)
+                            dt_parsed = datetime.datetime.strptime(exp_clean, fmt).date()
                             break
                         except ValueError:
                             continue
@@ -489,14 +546,14 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
                         all_expiries_dt.add((dt_parsed, exp_clean))
 
     market_closed_today = (now_ist.hour > 15) or (now_ist.hour == 15 and now_ist.minute >= 30)
-    today_dt = now_ist.replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_date_obj = now_ist.date()
 
     valid_tuples = []
     for item in all_expiries_dt:
         exp_date = item[0]
-        if exp_date > today_dt:
+        if exp_date > today_date_obj:
             valid_tuples.append(item)
-        elif exp_date == today_dt and not market_closed_today:
+        elif exp_date == today_date_obj and not market_closed_today:
             valid_tuples.append(item)
 
     if not valid_tuples:
@@ -506,32 +563,22 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     
     if sorted_expiries_tuples:
         w_exp_dt, w_exp_str = sorted_expiries_tuples[0]
-        w_exp = w_exp_str
+        w_exp = w_exp_dt
         
         target_month = w_exp_dt.month
         target_year = w_exp_dt.year
         
         same_month_expiries = [item for item in sorted_expiries_tuples if item[0].month == target_month and item[0].year == target_year]
-        m_exp = same_month_expiries[-1][1] if same_month_expiries else w_exp
+        m_exp = same_month_expiries[-1][0] if same_month_expiries else w_exp
     else:
-        w_exp = now_ist.strftime("%d-%m-%y").upper()
+        w_exp = today_date_obj
         m_exp = w_exp
 
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
-    min_diff = float('inf')
-    hlc_atm_strike = int(round(spot / 50.0) * 50) if spot > 0 else 23450
-
-    for (strike, opt_type), d_val in w_bhav.items():
-        if abs(strike - spot) <= 500:
-            ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
-            pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
-            if ce_close > 0 and pe_close > 0:
-                diff = abs(ce_close - pe_close)
-                if diff < min_diff:
-                    min_diff = diff
-                    hlc_atm_strike = strike
+    hlc_atm_strike = get_transition_atm_strikes(spot)
+    iv_atm_strike = get_iv_atm_strike(spot)
 
     sniper1_atm_strike = int(round(spot / 100.0) * 100) if spot > 0 else 23400
     sniper2_atm_strike = hlc_atm_strike
@@ -541,19 +588,27 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     target_s2_ce_strike = sniper2_atm_strike + 100
     target_s2_pe_strike = sniper2_atm_strike - 100
 
-    # Extract initial dictionary values (Bhavcopy fallback for IV included)
     ce_dict = w_bhav.get((int(hlc_atm_strike), "CE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
     pe_dict = w_bhav.get((int(hlc_atm_strike), "PE"), {"high": 0.0, "low": 0.0, "close": 0.0, "open": 0.0, "chg_oi": 0.0, "iv": 0.0})
 
     ce_metrics = calculate_dominance_metrics(ce_dict)
     pe_metrics = calculate_dominance_metrics(pe_dict)
 
-    # Overwrite IV with live real-time values from NSE option chain if accessible
-    live_ce_iv, live_pe_iv = get_live_iv_from_nse(hlc_atm_strike, w_exp)
-    if live_ce_iv > 0:
-        ce_metrics["iv"] = round(live_ce_iv, 2)
-    if live_pe_iv > 0:
-        pe_metrics["iv"] = round(live_pe_iv, 2)
+    iv_bhav_ce = w_bhav.get((int(iv_atm_strike), "CE"), {}).get("iv", 0.0)
+    iv_bhav_pe = w_bhav.get((int(iv_atm_strike), "PE"), {}).get("iv", 0.0)
+
+    if iv_bhav_ce > 0:
+        ce_metrics["iv"] = round(iv_bhav_ce, 2)
+    if iv_bhav_pe > 0:
+        pe_metrics["iv"] = round(iv_bhav_pe, 2)
+
+    if ce_metrics["iv"] == 0.0:
+        ce_price = ce_dict.get("close", 0.0)
+        ce_metrics["iv"] = get_live_iv_from_nse(iv_atm_strike, w_exp, "CE", ce_price, spot)
+
+    if pe_metrics["iv"] == 0.0:
+        pe_price = pe_dict.get("close", 0.0)
+        pe_metrics["iv"] = get_live_iv_from_nse(iv_atm_strike, w_exp, "PE", pe_price, spot)
 
     asymmetric_tv_data = calculate_asymmetric_time_value(spot, w_exp, w_bhav)
 
@@ -575,8 +630,16 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     max_supply_val = round(hlc_atm_strike + (ce_metrics["close"] + pe_metrics["close"]), 2)
     max_demand_val = round(hlc_atm_strike - (ce_metrics["close"] + pe_metrics["close"]), 2)
 
-    intraday_candles = fetch_intraday_candles_for_sellers_area()
-    dynamic_sellers_highs = get_valid_highs(intraday_candles, max_count=5)
+    daily_candles = fetch_daily_candles_for_sellers_area()
+    dynamic_sellers_highs = get_valid_highs(daily_candles, max_count=5)
+
+    adjusted_sellers_highs = []
+    for h in dynamic_sellers_highs:
+        if h <= max_supply_val:
+            adjusted_sellers_highs.append(round(max_supply_val + (max_supply_val - h) + 25.0, 2))
+        else:
+            adjusted_sellers_highs.append(h)
+    dynamic_sellers_highs = adjusted_sellers_highs
 
     wl = int(math.floor(spot / 100.0) * 100) if spot > 0 else 23300
     wh = int(math.ceil(spot / 100.0) * 100) if spot > 0 else 23400
@@ -593,9 +656,10 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
         "dataStatus": "SUCCESS",
         "bhavcopyReady": bhavcopy_is_ready,
         "currentDate": today_str,
-        "expiryDate": w_exp,
+        "expiryDate": w_exp.strftime("%Y-%m-%d"),
         "spotPrice": spot,
         "hlcAtmStrike": hlc_atm_strike,
+        "ivAtmStrike": iv_atm_strike,
         "ce": ce_metrics,
         "pe": pe_metrics,
         "ceTag": ce_metrics["dominance"], 
