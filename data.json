@@ -1,6 +1,6 @@
 {
     "dataStatus": "SUCCESS",
-    "bhavcopyReady": false,
+    "bhavcopyReady": true,
     "currentDate": "25 SEP 2026",
     "expiryDate": "2026-09-29",
     "spotPrice": 23063.099609375,
@@ -18,27 +18,27 @@
         "tagClass": "tag-neutral"
     },
     "pe": {
-        "high": 3.0,
+        "high": 0.65,
         "close": 0.65,
-        "low": 0.05,
+        "low": 0.65,
         "iv": 0.83,
-        "hc": 2.35,
-        "cl": 0.6,
-        "dominance": "SELLERS",
-        "themeColor": "red",
-        "tagClass": "tag-sellers"
+        "hc": 0.0,
+        "cl": 0.0,
+        "dominance": "NEUTRAL",
+        "themeColor": "orange",
+        "tagClass": "tag-neutral"
     },
     "ceTag": "NEUTRAL",
     "ceClass": "tag-neutral",
-    "peTag": "SELLERS",
-    "peClass": "tag-sellers",
+    "peTag": "NEUTRAL",
+    "peClass": "tag-neutral",
     "bannerTotal": 3146.0,
     "asymmetricTimeValue": {
-        "total": 3900.1,
+        "total": 3900.25,
         "ceStrike": 23100,
         "ceLtp": 3898.7,
         "peStrike": 23000,
-        "peLtp": 1.4
+        "peLtp": 1.55
     },
     "minSupply": 26395.35,
     "minDemand": 23249.35,
@@ -60,12 +60,12 @@
         "max": 20104.0
     },
     "weeklyZones": {
-        "line1": 26990.6,
-        "line2": 19200.3
+        "line1": 26990.75,
+        "line2": 19195.4
     },
     "monthlyZones": {
-        "line1": 26990.6,
-        "line2": 19200.3
+        "line1": 26990.75,
+        "line2": 19195.4
     },
     "spotHigh": 23281.94921875,
     "spotLow": 23046.150390625,
@@ -74,12 +74,12 @@
     "sniper1": {
         "strike": 23100,
         "ce": 3898.7,
-        "pe": 1.0,
+        "pe": 5.9,
         "otmCeStrike": 23200,
         "otmPeStrike": 23000,
         "otmCe": 3808.75,
-        "otmPe": 1.4,
-        "value": 1905.08
+        "otmPe": 1.55,
+        "value": 1905.15
     },
     "sniper2": {
         "strike": 23250,
