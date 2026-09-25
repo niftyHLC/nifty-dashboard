@@ -1,16 +1,16 @@
 {
     "dataStatus": "SUCCESS",
-    "bhavcopyReady": true,
-    "currentDate": "25 SEP 2026",
+    "bhavcopyReady": false,
+    "currentDate": "28 SEP 2026",
     "expiryDate": "2026-09-29",
-    "spotPrice": 23063.099609375,
-    "hlcAtmStrike": 23250,
-    "ivAtmStrike": 23050,
+    "spotPrice": 23140.5,
+    "hlcAtmStrike": 23300,
+    "ivAtmStrike": 23150,
     "ce": {
-        "high": 3145.35,
-        "close": 3145.35,
-        "low": 3145.35,
-        "iv": 292.15,
+        "high": 2089.25,
+        "close": 2089.25,
+        "low": 2089.25,
+        "iv": 216.32,
         "hc": 0.0,
         "cl": 0.0,
         "dominance": "NEUTRAL",
@@ -18,59 +18,59 @@
         "tagClass": "tag-neutral"
     },
     "pe": {
-        "high": 0.65,
-        "close": 0.65,
-        "low": 0.65,
-        "iv": 0.83,
-        "hc": 0.0,
+        "high": 2.65,
+        "close": 1.1,
+        "low": 1.1,
+        "iv": 0.0,
+        "hc": 1.55,
         "cl": 0.0,
-        "dominance": "NEUTRAL",
-        "themeColor": "orange",
-        "tagClass": "tag-neutral"
+        "dominance": "SELLERS",
+        "themeColor": "red",
+        "tagClass": "tag-sellers"
     },
     "ceTag": "NEUTRAL",
     "ceClass": "tag-neutral",
-    "peTag": "NEUTRAL",
-    "peClass": "tag-neutral",
-    "bannerTotal": 3146.0,
+    "peTag": "SELLERS",
+    "peClass": "tag-sellers",
+    "bannerTotal": 2090.35,
     "asymmetricTimeValue": {
-        "total": 3900.25,
-        "ceStrike": 23100,
-        "ceLtp": 3898.7,
-        "peStrike": 23000,
-        "peLtp": 1.55
+        "total": 3814.65,
+        "ceStrike": 23200,
+        "ceLtp": 3808.75,
+        "peStrike": 23100,
+        "peLtp": 5.9
     },
-    "minSupply": 26395.35,
-    "minDemand": 23249.35,
-    "maxSupply": 26396.0,
-    "maxDemand": 20104.0,
+    "minSupply": 25389.25,
+    "minDemand": 23298.9,
+    "maxSupply": 25390.35,
+    "maxDemand": 21209.65,
     "sellersArea": {
-        "min": 26395.35,
-        "max": 26396.0,
+        "min": 25389.25,
+        "max": 25390.35,
         "validUnbrokenHighs": [
-            29535.05,
-            29224.15,
-            29058.05,
-            28927.0,
-            28811.25
+            27523.75,
+            27212.85,
+            27046.75,
+            26915.7,
+            26799.95
         ]
     },
     "buyersArea": {
-        "min": 23249.35,
-        "max": 20104.0
+        "min": 23298.9,
+        "max": 21209.65
     },
     "weeklyZones": {
-        "line1": 26990.75,
-        "line2": 19195.4
+        "line1": 27004.6,
+        "line2": 19389.0
     },
     "monthlyZones": {
-        "line1": 26990.75,
-        "line2": 19195.4
+        "line1": 27004.6,
+        "line2": 19389.0
     },
-    "spotHigh": 23281.94921875,
-    "spotLow": 23046.150390625,
-    "spotDifference": 235.8,
-    "earthLevel": 61.57,
+    "spotHigh": 23162.69921875,
+    "spotLow": 23020.94921875,
+    "spotDifference": 141.75,
+    "earthLevel": 37.01,
     "sniper1": {
         "strike": 23100,
         "ce": 3898.7,
@@ -82,13 +82,13 @@
         "value": 1905.15
     },
     "sniper2": {
-        "strike": 23250,
-        "ce": 3145.35,
-        "pe": 0.65,
-        "otmCeStrike": 23350,
-        "otmPeStrike": 23150,
-        "otmCe": 3048.6,
-        "otmPe": 0.15,
-        "value": 1524.38
+        "strike": 23300,
+        "ce": 2089.25,
+        "pe": 1.1,
+        "otmCeStrike": 23400,
+        "otmPeStrike": 23200,
+        "otmCe": 1750.0,
+        "otmPe": 2.25,
+        "value": 876.12
     }
 }
