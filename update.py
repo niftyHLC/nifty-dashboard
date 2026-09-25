@@ -555,25 +555,22 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
-    # Calculate HLC ATM strike using Minimum CE/PE Close Difference with dynamic band fallback
+    # --- REFINED HLC ATM STRIKE LOGIC: Smallest CE-PE difference within tight ATM window ---
+    true_atm = int(round(spot / 50.0) * 50) if spot > 0 else 23150
+    search_candidates = [true_atm - 100, true_atm - 50, true_atm, true_atm + 50, true_atm + 100]
+    
     min_diff = float('inf')
-    hlc_atm_strike = int(round(spot / 50.0) * 50) if spot > 0 else 23450
+    hlc_atm_strike = true_atm
 
-    for band in [200, 300, 500]:
-        found_match = False
-        for (strike, opt_type), d_val in w_bhav.items():
-            if abs(strike - spot) <= band:
-                ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
-                pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
-                if ce_close > 0 and pe_close > 0:
-                    diff = abs(ce_close - pe_close)
-                    if diff < min_diff:
-                        min_diff = diff
-                        hlc_atm_strike = strike
-                        found_match = True
-        if found_match:
-            break
-            
+    for strike in search_candidates:
+        ce_close = w_bhav.get((strike, "CE"), {}).get("close", 0.0)
+        pe_close = w_bhav.get((strike, "PE"), {}).get("close", 0.0)
+        if ce_close > 0 and pe_close > 0:
+            diff = abs(ce_close - pe_close)
+            if diff < min_diff:
+                min_diff = diff
+                hlc_atm_strike = strike
+
     print(f"🎯 Selected HLC ATM Strike: {hlc_atm_strike} (Min CE-PE Difference: {min_diff:.2f})")
 
     iv_atm_strike = get_iv_atm_strike(spot)
