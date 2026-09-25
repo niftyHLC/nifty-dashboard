@@ -2,9 +2,7 @@ const CACHE_NAME = 'nifty-dashboard-v1';
 const STATIC_ASSETS = [
     './',
     './index.html',
-    './manifest.json',
-    './icon-192.png',
-    './icon-512.png'
+    './manifest.json'
 ];
 
 // Install Event - Pre-cache core shell UI
