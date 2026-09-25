@@ -213,12 +213,16 @@ def process(spot,hi,lo,force_not_ready=False):
 if __name__=="__main__":
     t=now(); off=t.weekday()>=5 or t.date() in MARKET_HOLIDAYS
     spot=fetch_spot()
-    if not spot: raise SystemExit("ERROR: NIFTY spot unavailable; no fallback prices used.")
+    if not spot:
+        print("ERROR: NIFTY spot unavailable; no fallback prices used.")
+        raise SystemExit(1)
     if off: process(*spot,force_not_ready=True); raise SystemExit
     if os.path.exists("data.json"):
         try:
             with open("data.json") as f: old=json.load(f)
-            if old.get("currentDate")==display_date(t) and old.get("bhavcopyReady") is True: raise SystemExit("Today's data already processed.")
+            if old.get("currentDate")==display_date(t) and old.get("bhavcopyReady") is True:
+                print("Today's data already processed. Exiting successfully.")
+                raise SystemExit(0)
         except SystemExit: raise
         except Exception: pass
     process(*spot)
