@@ -367,6 +367,7 @@ def load_bhavcopy_dict(target_expiry_input):
                     except ValueError:
                         continue
                 
+                # STRICT MATCH: Ensure row expiry matches target expiry exactly
                 if row_dt and row_dt == target_dt:
                     open_p = float(cleaned_row.get("OPENPRIC") or cleaned_row.get("OPEN") or 0.0)
                     high = float(cleaned_row.get("HGHPRIC") or cleaned_row.get("HIGH") or 0.0)
