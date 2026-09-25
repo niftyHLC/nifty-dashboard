@@ -129,8 +129,9 @@ def time_value(spot, expiry, bhav, data=None):
             except Exception:
                 pass
     if not sm:
-        for (s, k), v in bhav.items():
-            sm.setdefault(s, {"ce": 0, "pe": 0})[k.lower()] = v["close"]
+        for (s, expiry_dt, k), v in bhav.items():
+            if expiry_dt == parse_date(expiry):
+                sm.setdefault(s, {"ce": 0, "pe": 0})[k.lower()] = v["close"]
     keys = sorted(sm)
     if len(keys) < 3:
         return {"total": 0, "ceStrike": 0, "ceLtp": 0, "peStrike": 0, "peLtp": 0}
@@ -166,8 +167,6 @@ def daily_candles():
         print("Daily data error:", e)
         return []
 
-# NSE currently lists F&O UDiFF Common Bhavcopy as the active F&O bhavcopy.
-# The old F&O CSV report was discontinued in July 2024.
 def download_bhavcopy(trade_date=None, retries=3, delay=15):
     d = trade_date or previous_market_day(now().date())
     ymd = d.strftime("%Y%m%d")
@@ -238,50 +237,30 @@ def parse_bhav_file(path="bhavcopy.csv"):
                 if strike <= 0 or close <= 0: continue
 
                 option_rows += 1
-                out[(int(round(strike)), opt)] = {
+                s_int = int(round(strike))
+                out[(s_int, expiry, opt)] = {
                     "open": _num(r, "OPNPRIC", "OPENPRIC", "OPEN"),
-                    "high": _num(r, "HGHPric", "HGHPRIC", "HIGH", "HIGH_PRICE"),
-                    "low": _num(r, "LWPRIC", "LOW", "LOW_PRICE"),
+                    "high": _num(r, "HGHPric", "HGHPRIC", "HIGH", "HIGH_PRICE") or close,
+                    "low": _num(r, "LWPRIC", "LOW", "LOW_PRICE") or close,
                     "close": close,
                     "chg_oi": _num(r, "CHNGINOPNINTRST", "CHGINOI", "CHG_IN_OI"),
                     "iv": _num(r, "IV", "IMPLIED_VOL")
                 }
-                if out[(int(round(strike)), opt)]["high"] <= 0:
-                    out[(int(round(strike)), opt)]["high"] = close
-                if out[(int(round(strike)), opt)]["low"] <= 0:
-                    out[(int(round(strike)), opt)]["low"] = close
     except Exception as e:
         print("Bhavcopy parse error:", e)
     return out, expiries, option_rows
 
-def load_bhav(expiry, source=None):
-    data = source or parse_bhav_file()[0]
+def load_bhav(expiry, parsed_data=None):
     target = parse_date(expiry)
     if not target: return {}
-    # parse_bhav_file stores rows without expiry in the key, so re-read for exact expiry.
-    out = {}
-    try:
-        with open("bhavcopy.csv", encoding="utf-8-sig", errors="ignore", newline="") as f:
-            for raw in csv.DictReader(f):
-                r = _norm_row(raw)
-                if _field(r, "TCKRSYMB", "SYMBOL", "TICKERSYMBOL").upper() != "NIFTY": continue
-                if parse_date(_field(r, "XPRYDT", "EXPIRY_DT", "EXPIRY")) != target: continue
-                opt = _field(r, "OPTNTP", "OPTION_TYP", "OPTIONTYPE").upper()
-                if opt not in ("CE", "PE"): continue
-                s = int(round(_num(r, "STRKPRIC", "STRIKE_PR", "STRIKE")))
-                c = _num(r, "CLSPRIC", "CLOSE", "CLOSE_PRICE")
-                if s <= 0 or c <= 0: continue
-                out[(s, opt)] = {
-                    "open": _num(r, "OPNPRIC", "OPENPRIC", "OPEN"),
-                    "high": _num(r, "HGHPric", "HGHPRIC", "HIGH", "HIGH_PRICE") or c,
-                    "low": _num(r, "LWPRIC", "LOW", "LOW_PRICE") or c,
-                    "close": c,
-                    "chg_oi": _num(r, "CHNGINOPNINTRST", "CHGINOI", "CHG_IN_OI"),
-                    "iv": _num(r, "IV", "IMPLIED_VOL")
-                }
-    except Exception as e:
-        print("Expiry load error:", e)
-    return out
+    
+    # Optimized: If dictionary data is already in memory, slice it directly avoiding file re-reads
+    if parsed_data:
+        return {(s, k): v for (s, exp, k), v in parsed_data.items() if exp == target}
+
+    # Fallback to file parsing if memory dictionary isn't passed
+    full_data, _, _ = parse_bhav_file()
+    return {(s, k): v for (s, exp, k), v in full_data.items() if exp == target}
 
 def dominance(d):
     d = d or {}
@@ -328,13 +307,12 @@ def push():
 
 def process(spot, hi, lo):
     t = now()
-    # Use the most recently completed market session for EOD H/L/C option data.
     trade_day = t.date() if is_market_day(t.date()) and (t.hour > 15 or (t.hour == 15 and t.minute >= 30)) else previous_market_day(t.date())
     ready = download_bhavcopy(trade_day)
     if not ready:
         return error_payload("NSE F&O Bhavcopy download failed.", spot)
 
-    _, expiries, option_rows = parse_bhav_file()
+    full_bhav, expiries, option_rows = parse_bhav_file()
     if option_rows == 0:
         return error_payload("Bhavcopy downloaded, but no NIFTY CE/PE option rows were parsed.", spot)
 
@@ -350,7 +328,7 @@ def process(spot, hi, lo):
     same = [x for x in valid if x.month == wexp.month and x.year == wexp.year]
     mexp = same[-1] if same else wexp
 
-    wb, mb = load_bhav(wexp), load_bhav(mexp)
+    wb, mb = load_bhav(wexp, full_bhav), load_bhav(mexp, full_bhav)
     if not wb:
         return error_payload(f"No NIFTY option data found for expiry {wexp}.", spot)
 
@@ -427,12 +405,10 @@ if __name__ == "__main__":
         print("ERROR: NIFTY spot unavailable; no fallback price used.")
         raise SystemExit(1)
 
-    # On weekends/holidays, do not pretend that today's Bhavcopy exists.
     if not is_market_day(t.date()):
         process(*spot)
         raise SystemExit(0)
 
-    # Avoid unnecessary duplicate processing after a successful run.
     if os.path.exists("data.json"):
         try:
             with open("data.json",encoding="utf-8") as f:
