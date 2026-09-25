@@ -17,55 +17,184 @@ import zipfile
 # Indian Standard Time (IST) offset
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
-def get_market_holidays():
-    """Dynamically computes Indian public and market holidays automatically."""
-    current_year = datetime.datetime.now(IST).year
-    in_holidays = holidays.India(years=current_year)
-    return set(in_holidays.keys())
+NSE_HOME_URL = "https://www.nseindia.com"
+NSE_HOLIDAY_API = "https://www.nseindia.com/api/holiday-master?type=trading"
+
+def get_nse_headers():
+    """Common browser-like headers used for NSE requests."""
+    return {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/153.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json,text/plain,*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Referer": NSE_HOME_URL + "/",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+    }
+
+def parse_any_date(value):
+    """Parse common NSE/Yahoo date representations into a date object."""
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+
+    value = str(value).strip()
+    if not value:
+        return None
+
+    formats = (
+        "%Y-%m-%d", "%d-%b-%Y", "%d-%B-%Y",
+        "%d-%m-%y", "%d-%m-%Y", "%d%b%Y",
+        "%d%b%y", "%Y/%m/%d", "%d/%m/%Y",
+    )
+    for fmt in formats:
+        try:
+            return datetime.datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+def get_market_holidays(year=None):
+    """
+    Gets the actual NSE trading-holiday calendar first.
+    Falls back to holidays.India() only if NSE is unavailable.
+    """
+    year = year or datetime.datetime.now(IST).year
+    holidays_set = set()
+
+    try:
+        session = requests.Session()
+        headers = get_nse_headers()
+        session.get(NSE_HOME_URL, headers=headers, timeout=10)
+        response = session.get(NSE_HOLIDAY_API, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            payload = response.json()
+
+            def collect_dates(node):
+                if isinstance(node, dict):
+                    for key, value in node.items():
+                        key_l = str(key).lower()
+                        if key_l in {"tradingdate", "date", "trading_date"}:
+                            parsed = parse_any_date(value)
+                            if parsed and parsed.year == year:
+                                holidays_set.add(parsed)
+                        else:
+                            collect_dates(value)
+                elif isinstance(node, list):
+                    for item in node:
+                        collect_dates(item)
+
+            collect_dates(payload)
+
+        if holidays_set:
+            return holidays_set
+
+    except Exception as e:
+        print(f"⚠️ NSE holiday API unavailable: {e}")
+
+    # Conservative fallback only. This is not treated as the primary calendar.
+    try:
+        in_holidays = holidays.India(years=year)
+        holidays_set = {
+            d for d in in_holidays.keys()
+            if isinstance(d, datetime.date)
+        }
+    except Exception as e:
+        print(f"⚠️ India holiday fallback unavailable: {e}")
+
+    return holidays_set
 
 MARKET_HOLIDAYS = get_market_holidays()
 
 def fetch_live_spot_from_yahoo():
-    """Fetches real-time or end-of-day Nifty 50 High, Low, and Close prices from Yahoo Finance with fallback."""
+    """
+    Fetches the latest available NIFTY 50 OHLC from Yahoo Finance.
+    Never returns hard-coded/stale fallback prices.
+    """
     try:
         ticker = yf.Ticker("^NSEI")
-        todays_data = ticker.history(period="1d")
-        if not todays_data.empty:
-            spot_close = float(todays_data["Close"].iloc[-1])
-            spot_high = float(todays_data["High"].iloc[-1])
-            spot_low = float(todays_data["Low"].iloc[-1])
-            if spot_close > 0:
-                return spot_close, spot_high, spot_low
+        df = ticker.history(
+            period="5d",
+            interval="1d",
+            auto_adjust=False,
+            actions=False,
+        )
+
+        if df is None or df.empty:
+            raise RuntimeError("Yahoo returned no NIFTY data.")
+
+        # Prefer today's IST date when a row is available.
+        today = datetime.datetime.now(IST).date()
+        selected = None
+
+        for idx in reversed(df.index):
+            try:
+                row_date = idx.to_pydatetime().date()
+            except Exception:
+                row_date = getattr(idx, "date", lambda: None)()
+
+            if row_date == today:
+                selected = df.loc[idx]
+                break
+
+        if selected is None:
+            selected = df.iloc[-1]
+            print("ℹ️ Yahoo has no row for today; using the latest available trading-day close.")
+
+        spot_close = float(selected["Close"])
+        spot_high = float(selected["High"])
+        spot_low = float(selected["Low"])
+
+        if not all(math.isfinite(v) and v > 0 for v in (spot_close, spot_high, spot_low)):
+            raise ValueError("Yahoo returned invalid NIFTY OHLC values.")
+
+        return spot_close, spot_high, spot_low
+
     except Exception as e:
-        print(f"Failed to fetch spot from Yahoo Finance: {e}")
-     
-    print("⚠️ Using fallback spot values due to Yahoo Finance connection block.")
-    return 23398.10, 23448.10, 23231.40
+        print(f"❌ Failed to fetch NIFTY spot from Yahoo Finance: {e}")
+        return None, None, None
 
-def fetch_nse_option_chain_data(symbol="NIFTY"):
-    """Fetches live option chain JSON directly from NSE using a persistent session and correct cookie headers."""
-    base_url = "https://www.nseindia.com"
-    api_url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
+def fetch_nse_option_chain_data(symbol="NIFTY", max_retries=3):
+    """Fetches NSE option-chain JSON with session warm-up and retries."""
+    api_url = f"{NSE_HOME_URL}/api/option-chain-indices?symbol={symbol}"
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive"
-    }
+    for attempt in range(1, max_retries + 1):
+        try:
+            session = requests.Session()
+            headers = get_nse_headers()
+            headers["X-Requested-With"] = "XMLHttpRequest"
 
-    session = requests.Session()
-    try:
-        session.get(base_url, headers=headers, timeout=10)
-        time.sleep(1)
-        response = session.get(api_url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"⚠️ NSE API responded with status code: {response.status_code}")
-    except Exception as e:
-        print(f"Failed to fetch live NSE option chain: {e}")
+            home = session.get(NSE_HOME_URL, headers=headers, timeout=10)
+            if home.status_code not in (200, 403):
+                print(f"⚠️ NSE home-page status: {home.status_code}")
+
+            response = session.get(api_url, headers=headers, timeout=15)
+
+            if response.status_code == 200:
+                payload = response.json()
+                if isinstance(payload, dict) and payload:
+                    return payload
+
+            print(
+                f"⚠️ NSE option-chain attempt {attempt}/{max_retries} "
+                f"returned HTTP {response.status_code}."
+            )
+
+        except Exception as e:
+            print(
+                f"⚠️ NSE option-chain attempt {attempt}/{max_retries} failed: {e}"
+            )
+
+        if attempt < max_retries:
+            time.sleep(2 * attempt)
+
     return None
 
 def get_iv_atm_strike(spot):
@@ -260,12 +389,10 @@ def fetch_daily_candles_for_sellers_area():
         print(f"⚠️ Could not fetch daily candles: {e}")
     return []
 
-def download_today_bhavcopy(max_retries=5, delay_seconds=60):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.nseindia.com/"
-    }
+def download_today_bhavcopy(max_retries=3, delay_seconds=30):
+    headers = get_nse_headers()
+    headers["Accept"] = "text/csv,application/zip,application/octet-stream,*/*"
+
     now_ist = datetime.datetime.now(IST)
     yyyy = now_ist.strftime("%Y")
     mm = now_ist.strftime("%m")
@@ -556,6 +683,16 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     w_bhav = load_bhavcopy_dict(w_exp)
     m_bhav = load_bhavcopy_dict(m_exp)
 
+    if not w_bhav:
+        print(
+            f"⚠️ No NIFTY option Bhavcopy rows found for active expiry {w_exp}. "
+            "Publishing a DATA_UNAVAILABLE payload instead of zero-filled signals."
+        )
+        write_error_payload(
+            f"No NIFTY option Bhavcopy data found for active expiry {w_exp}."
+        )
+        return
+
     # --- UPDATED HLC ATM STRIKE LOGIC: Finds smallest CE-PE Difference across available strikes ---
     available_strikes = sorted(list(set(s for s, t in w_bhav.keys())))
     min_diff = float('inf')
@@ -662,10 +799,17 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
         "dataStatus": "SUCCESS",
         "bhavcopyReady": bhavcopy_is_ready,
         "currentDate": today_str,
+        "timestampIST": now_ist.isoformat(),
         "expiryDate": w_exp.strftime("%Y-%m-%d"),
         "spotPrice": spot,
         "hlcAtmStrike": hlc_atm_strike,
         "ivAtmStrike": iv_atm_strike,
+        "atmDefinitions": {
+            "hlc": "Strike with the smallest absolute CE-close minus PE-close difference in the active weekly expiry.",
+            "iv": "Nearest 50-point strike to NIFTY spot.",
+            "sniper1": "Nearest 100-point strike to NIFTY spot.",
+            "sniper2": "Same strike as HLC ATM."
+        },
         "ce": ce_metrics,
         "pe": pe_metrics,
         "ceTag": ce_metrics["dominance"], 
@@ -711,6 +855,27 @@ def process_and_save_data(spot, spot_high, spot_low, force_not_ready=False):
     print(f"Data saved successfully. Active Weekly Expiry: {w_exp} | Active Monthly Expiry: {m_exp}")
     push_to_github()
 
+def write_error_payload(message):
+    """Writes a truthful error state instead of publishing stale/hard-coded prices."""
+    now_ist = datetime.datetime.now(IST)
+    payload = {
+        "dataStatus": "ERROR",
+        "bhavcopyReady": False,
+        "currentDate": get_display_date(now_ist),
+        "timestampIST": now_ist.isoformat(),
+        "error": str(message),
+        "spotPrice": None,
+        "spotHigh": None,
+        "spotLow": None,
+    }
+    try:
+        with open("data.json", "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=4)
+        print(f"❌ Error payload saved: {message}")
+    except Exception as e:
+        print(f"❌ Could not save error payload: {e}")
+
+
 if __name__ == "__main__":
     now_ist = datetime.datetime.now(IST)
     today_date = now_ist.date()
@@ -723,10 +888,9 @@ if __name__ == "__main__":
         reason = "WEEKEND" if is_weekend else "HOLIDAY"
         print(f"🛑 Today is a {reason}. Setting bhavcopyReady to False for dashboard notification.")
         spot, spot_high, spot_low = fetch_live_spot_from_yahoo()
-        if spot <= 0:
-            spot = 23398.10
-            spot_high = 23448.10
-            spot_low = 23231.40
+        if spot is None:
+            write_error_payload("NIFTY spot data unavailable on weekend/holiday.")
+            exit(1)
         process_and_save_data(spot, spot_high, spot_low, force_not_ready=True)
         exit(0)
 
@@ -743,8 +907,14 @@ if __name__ == "__main__":
             pass
 
     spot, spot_high, spot_low = fetch_live_spot_from_yahoo()
-    if spot > 0:
-        print(f"Retrieved Spot Price from Yahoo Finance -> Close: {spot}, High: {spot_high}, Low: {spot_low}")
-        process_and_save_data(spot, spot_high, spot_low, force_not_ready=False)
+    if spot is not None:
+        print(
+            f"Retrieved NIFTY spot from Yahoo Finance -> "
+            f"Close: {spot}, High: {spot_high}, Low: {spot_low}"
+        )
+        process_and_save_data(
+            spot, spot_high, spot_low, force_not_ready=False
+        )
     else:
-        print("Failed to retrieve spot price.")
+        write_error_payload("NIFTY spot data unavailable. No fake fallback price was used.")
+        exit(1)
