@@ -143,10 +143,10 @@ def get_live_iv_from_nse(atm_strike, target_expiry, option_type, price, spot):
                                 break
                             except ValueError:
                                 continue
-                      
+                     
                         if (target_dt and opt_dt and target_dt == opt_dt) or (exp_str.upper() == str(target_expiry).upper()):
                             iv_val = float(opt_data.get("impliedVolatility", 0.0))
-                    break
+                        break
         except Exception as e:
             print(f"Error parsing live IV from NSE data: {e}")
 
