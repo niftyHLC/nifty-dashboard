@@ -67,7 +67,7 @@ def nse_data(symbol="NIFTY"):
         time.sleep(.4)
         r = s.get(
             f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}",
-            headers=HEADERS, timeout=15
+            headers=HEADERS, timeout=20
         )
         return r.json() if r.status_code == 200 else None
     except Exception as e:
@@ -98,7 +98,8 @@ def bs_iv(kind, price, spot, strike, expiry):
         return 0.0
 
 def live_iv(strike, expiry, kind, price, spot, data=None):
-    data = data or nse_data()
+    if data is None:
+        data = nse_data()
     if data:
         target = parse_date(expiry)
         for x in data.get("records", {}).get("data", []):
@@ -114,7 +115,8 @@ def live_iv(strike, expiry, kind, price, spot, data=None):
 
 def time_value(spot, expiry, bhav, data=None):
     atm, sm = atm50(spot), {}
-    data = data or nse_data()
+    if data is None:
+        data = nse_data()
     if data:
         target = parse_date(expiry)
         for x in data.get("records", {}).get("data", []):
@@ -129,8 +131,7 @@ def time_value(spot, expiry, bhav, data=None):
             except Exception:
                 pass
     if not sm:
-        for (s, expiry_dt, k), v in bhav.items():
-            if expiry_dt == parse_date(expiry):
+        for (s, k), v in bhav.items():
                 sm.setdefault(s, {"ce": 0, "pe": 0})[k.lower()] = v["close"]
     keys = sorted(sm)
     if len(keys) < 3:
@@ -342,14 +343,21 @@ def process(spot, hi, lo):
     ivatm, s1, s2 = atm50(spot), atm100(spot), hlc
     ce, pe = dominance(wb.get((hlc,"CE"))), dominance(wb.get((hlc,"PE")))
 
+    # Reuse one NSE option-chain request for both IV and time-value.
+    chain = nse_data()
+
     for obj, kind in ((ce,"CE"),(pe,"PE")):
         v = wb.get((ivatm,kind),{}).get("iv",0)
         if v > 0:
             obj["iv"] = round(v,2)
         elif obj["close"] > 0:
-            obj["iv"] = live_iv(ivatm,wexp,kind,wb.get((ivatm,kind),{}).get("close",0),spot)
+            obj["iv"] = live_iv(
+                ivatm, wexp, kind,
+                wb.get((ivatm,kind),{}).get("close",0),
+                spot, chain
+            )
 
-    tv = time_value(spot,wexp,wb)
+    tv = time_value(spot,wexp,wb,chain)
     get = lambda s,k: wb.get((s,k),{}).get("close",0)
     s1v = round((get(s1+100,"CE")+get(s1-100,"PE"))/2,2)
     s2v = round((get(s2+100,"CE")+get(s2-100,"PE"))/2,2)
