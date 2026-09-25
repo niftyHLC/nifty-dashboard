@@ -1,1 +1,94 @@
-
+{
+    "dataStatus": "SUCCESS",
+    "bhavcopyReady": true,
+    "currentDate": "28 SEP 2026",
+    "expiryDate": "2026-09-29",
+    "spotPrice": 23140.5,
+    "hlcAtmStrike": 23000,
+    "ivAtmStrike": 23150,
+    "ce": {
+        "high": 2199.35,
+        "close": 1901.45,
+        "low": 1886.95,
+        "iv": 196.77,
+        "hc": 297.9,
+        "cl": 14.5,
+        "dominance": "SELLERS",
+        "themeColor": "red",
+        "tagClass": "tag-sellers"
+    },
+    "pe": {
+        "high": 6.05,
+        "close": 1.1,
+        "low": 0.85,
+        "iv": 0.0,
+        "hc": 4.95,
+        "cl": 0.25,
+        "dominance": "SELLERS",
+        "themeColor": "red",
+        "tagClass": "tag-sellers"
+    },
+    "ceTag": "SELLERS",
+    "ceClass": "tag-sellers",
+    "peTag": "SELLERS",
+    "peClass": "tag-sellers",
+    "bannerTotal": 1902.55,
+    "asymmetricTimeValue": {
+        "total": 3809.95,
+        "ceStrike": 23200,
+        "ceLtp": 3808.75,
+        "peStrike": 23100,
+        "peLtp": 1.2
+    },
+    "minSupply": 24901.45,
+    "minDemand": 22998.9,
+    "maxSupply": 24902.55,
+    "maxDemand": 21097.45,
+    "sellersArea": {
+        "min": 24901.45,
+        "max": 24902.55,
+        "validUnbrokenHighs": [
+            26548.15,
+            26341.1,
+            26237.25,
+            26071.15,
+            25940.1
+        ]
+    },
+    "buyersArea": {
+        "min": 22998.9,
+        "max": 21097.45
+    },
+    "weeklyZones": {
+        "line1": 26999.9,
+        "line2": 19390.15
+    },
+    "monthlyZones": {
+        "line1": 26999.9,
+        "line2": 19390.15
+    },
+    "spotHigh": 23162.69921875,
+    "spotLow": 23020.94921875,
+    "spotDifference": 141.75,
+    "earthLevel": 37.01,
+    "sniper1": {
+        "strike": 23100,
+        "ce": 3898.7,
+        "pe": 1.2,
+        "otmCeStrike": 23200,
+        "otmPeStrike": 23000,
+        "otmCe": 3808.75,
+        "otmPe": 1.1,
+        "value": 1904.92
+    },
+    "sniper2": {
+        "strike": 23000,
+        "ce": 1901.45,
+        "pe": 1.1,
+        "otmCeStrike": 23100,
+        "otmPeStrike": 22900,
+        "otmCe": 3898.7,
+        "otmPe": 74.5,
+        "value": 1986.6
+    }
+}
