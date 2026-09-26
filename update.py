@@ -425,7 +425,7 @@ def process(spot, hi, lo):
         "spotPrice":spot, "hlcAtmStrike":hlc, "ivAtmStrike":ivatm,
         "ce":ce, "pe":pe, "ceTag":ce["dominance"], "ceClass":ce["tagClass"],
         "peTag":pe["dominance"], "peClass":pe["tagClass"],
-        "bannerTotal":round(ce["close"]+pe["close"],2),
+        "bannerTotal": round(abs(ce["close"] - pe["close"]), 2),
         "asymmetricTimeValue":tv,
         "minSupply":mins, "minDemand":mind, "maxSupply":maxs, "maxDemand":maxd,
         "sellersArea":{"min":mins,"max":maxs,"validUnbrokenHighs":highs},
