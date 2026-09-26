@@ -74,7 +74,12 @@ def nse_data(symbol="NIFTY"):
         print("NSE option-chain error:", e)
         return None
 
-def atm50(x): return int(round(float(x) / 50) * 50)
+def atm50(x):
+    """
+    Select the smaller 50-point strike at the NSE option-chain ITM boundary.
+    Example: underlying between 23150 and 23200 -> 23150.
+    """
+    return int(math.floor(float(x) / 50.0) * 50)
 def atm100(x): return int(round(float(x) / 100) * 100)
 
 def bs_iv(kind, price, spot, strike, expiry):
@@ -97,51 +102,53 @@ def bs_iv(kind, price, spot, strike, expiry):
     except Exception:
         return 0.0
 
-def live_iv(strike, expiry, kind, price, spot, data=None):
+def live_iv(strike, expiry, kind, price=0, spot=0, data=None):
+    """Return NSE Option Chain IV for the exact strike + expiry + CE/PE."""
     data = data or nse_data()
+    if not data:
+        return 0.0
+    target = parse_date(expiry)
+    for x in data.get("records", {}).get("data", []):
+        try:
+            if float(x.get("strikePrice", 0)) != float(strike):
+                continue
+            o = x.get(kind, {})
+            if parse_date(o.get("expiryDate")) != target:
+                continue
+            iv = float(o.get("impliedVolatility", 0) or 0)
+            if iv > 0:
+                return round(iv, 2)
+        except Exception:
+            continue
+    return 0.0
+
+def time_value(spot, expiry, bhav=None, data=None):
+    """TV = NSE (lower-boundary ATM + 50 CE LTP) + NSE (ATM - 50 PE LTP)."""
+    atm = atm50(spot)
+    ce_strike, pe_strike = atm + 50, atm - 50
+    ce_ltp = pe_ltp = 0.0
+    data = data or nse_data()
+
     if data:
         target = parse_date(expiry)
         for x in data.get("records", {}).get("data", []):
             try:
-                if float(x.get("strikePrice", 0)) != float(strike): continue
-                o = x.get(kind, {})
-                if parse_date(o.get("expiryDate")) == target:
-                    v = float(o.get("impliedVolatility", 0) or 0)
-                    if v > 0: return v
+                strike = float(x.get("strikePrice", 0))
+                if strike == float(ce_strike):
+                    ce = x.get("CE", {})
+                    if parse_date(ce.get("expiryDate")) == target:
+                        ce_ltp = float(ce.get("lastPrice", 0) or 0)
+                if strike == float(pe_strike):
+                    pe = x.get("PE", {})
+                    if parse_date(pe.get("expiryDate")) == target:
+                        pe_ltp = float(pe.get("lastPrice", 0) or 0)
             except Exception:
                 continue
-    return bs_iv(kind, price, spot, strike, expiry)
 
-def time_value(spot, expiry, bhav, data=None):
-    atm, sm = atm50(spot), {}
-    data = data or nse_data()
-    if data:
-        target = parse_date(expiry)
-        for x in data.get("records", {}).get("data", []):
-            try:
-                s = float(x.get("strikePrice", 0))
-                ce, pe = x.get("CE", {}), x.get("PE", {})
-                if parse_date(ce.get("expiryDate") or pe.get("expiryDate")) == target:
-                    sm[s] = {
-                        "ce": float(ce.get("lastPrice", 0) or 0),
-                        "pe": float(pe.get("lastPrice", 0) or 0)
-                    }
-            except Exception:
-                pass
-    if not sm:
-        for (s, k), v in bhav.items():
-            sm.setdefault(s, {"ce": 0, "pe": 0})[k.lower()] = v["close"]
-    keys = sorted(sm)
-    if len(keys) < 3:
-        return {"total": 0, "ceStrike": 0, "ceLtp": 0, "peStrike": 0, "peLtp": 0}
-    i = min(range(len(keys)), key=lambda j: abs(keys[j]-atm))
-    if i == 0 or i == len(keys)-1:
-        return {"total": 0, "ceStrike": 0, "ceLtp": 0, "peStrike": 0, "peLtp": 0}
-    cs, ps = keys[i+1], keys[i-1]
     return {
-        "total": round(sm[cs]["ce"] + sm[ps]["pe"], 2),
-        "ceStrike": cs, "ceLtp": sm[cs]["ce"],
-        "peStrike": ps, "peLtp": sm[ps]["pe"]
+        "total": round(ce_ltp + pe_ltp, 2),
+        "ceStrike": ce_strike, "ceLtp": round(ce_ltp, 2),
+        "peStrike": pe_strike, "peLtp": round(pe_ltp, 2)
     }
 
 def valid_highs(candles, max_count=5):
@@ -422,14 +429,15 @@ def process(spot, hi, lo):
     ivatm, s1, s2 = atm50(spot), atm100(spot), hlc
     ce, pe = dominance(wb.get((hlc,"CE"))), dominance(wb.get((hlc,"PE")))
 
-    for obj, kind in ((ce,"CE"),(pe,"PE")):
-        v = wb.get((ivatm,kind),{}).get("iv",0)
-        if v > 0:
-            obj["iv"] = round(v,2)
-        elif obj["close"] > 0:
-            obj["iv"] = live_iv(ivatm,wexp,kind,wb.get((ivatm,kind),{}).get("close",0),spot)
+    # Fetch NSE Option Chain once and share it between IV and Time Value.
+    option_chain = nse_data()
 
-    tv = time_value(spot,wexp,wb)
+    # IV: use the exact lower-boundary ATM strike and weekly expiry.
+    ce["iv"] = live_iv(ivatm, wexp, "CE", data=option_chain)
+    pe["iv"] = live_iv(ivatm, wexp, "PE", data=option_chain)
+
+    # TV: (IV ATM + 50 CE LTP) + (IV ATM - 50 PE LTP), NSE Option Chain.
+    tv = time_value(spot, wexp, data=option_chain)
     get = lambda s,k: wb.get((s,k),{}).get("close",0)
     s1v = round((get(s1+100,"CE")+get(s1-100,"PE"))/2,2)
     s2v = round((get(s2+100,"CE")+get(s2-100,"PE"))/2,2)
