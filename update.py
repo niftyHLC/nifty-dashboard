@@ -67,7 +67,7 @@ def nse_data(symbol="NIFTY"):
         time.sleep(.4)
         r = s.get(
             f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}",
-            headers=HEADERS, timeout=20
+            headers=HEADERS, timeout=15
         )
         return r.json() if r.status_code == 200 else None
     except Exception as e:
@@ -98,8 +98,7 @@ def bs_iv(kind, price, spot, strike, expiry):
         return 0.0
 
 def live_iv(strike, expiry, kind, price, spot, data=None):
-    if data is None:
-        data = nse_data()
+    data = data or nse_data()
     if data:
         target = parse_date(expiry)
         for x in data.get("records", {}).get("data", []):
@@ -115,8 +114,7 @@ def live_iv(strike, expiry, kind, price, spot, data=None):
 
 def time_value(spot, expiry, bhav, data=None):
     atm, sm = atm50(spot), {}
-    if data is None:
-        data = nse_data()
+    data = data or nse_data()
     if data:
         target = parse_date(expiry)
         for x in data.get("records", {}).get("data", []):
@@ -132,7 +130,7 @@ def time_value(spot, expiry, bhav, data=None):
                 pass
     if not sm:
         for (s, k), v in bhav.items():
-                sm.setdefault(s, {"ce": 0, "pe": 0})[k.lower()] = v["close"]
+            sm.setdefault(s, {"ce": 0, "pe": 0})[k.lower()] = v["close"]
     keys = sorted(sm)
     if len(keys) < 3:
         return {"total": 0, "ceStrike": 0, "ceLtp": 0, "peStrike": 0, "peLtp": 0}
@@ -168,62 +166,88 @@ def daily_candles():
         print("Daily data error:", e)
         return []
 
-def download_bhavcopy(trade_date=None, interval_minutes=15, final_hour=21):
-    """Retry every 15 minutes until 21:00 IST; stop immediately on success."""
+def download_bhavcopy(trade_date=None):
+    """
+    Make one fast attempt to get the requested NSE F&O Bhavcopy.
+    GitHub Actions repeats this script every 5 minutes until 21:00 IST.
+    A download counts as ready only if the ZIP/CSV contains valid NIFTY CE/PE rows.
+    """
     d = trade_date or previous_market_day(now().date())
-    ymd, ddmmyyyy = d.strftime("%Y%m%d"), d.strftime("%d%m%Y")
+    ymd = d.strftime("%Y%m%d")
+    ddmmyyyy = d.strftime("%d%m%Y")
     urls = [
         f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{ymd}_F_0000.csv.zip",
         f"https://nsearchives.nseindia.com/content/historical/DERIVATIVES/{d:%Y}/{d:%b}/fo{ddmmyyyy}bhav.csv.zip"
     ]
-    attempt, last_error = 0, ""
-    while True:
-        current = now()
-        attempt += 1
-        final_attempt = current.hour >= final_hour
-        print(f"Bhavcopy attempt {attempt} at {current:%Y-%m-%d %H:%M:%S} IST" +
-              (" [FINAL]" if final_attempt else ""))
 
-        for url in urls:
-            try:
-                r = requests.get(url, headers=HEADERS, timeout=30)
-                if r.status_code != 200 or len(r.content) < 1000:
-                    last_error = f"HTTP {r.status_code}, size={len(r.content)}"
-                    print("Bhavcopy unavailable:", last_error)
+    for url in urls:
+        try:
+            print(f"Checking NSE Bhavcopy for {d}:", url)
+            r = requests.get(url, headers=HEADERS, timeout=30)
+
+            if r.status_code != 200 or len(r.content) < 1000:
+                print(f"Not ready: HTTP {r.status_code}, bytes={len(r.content)}")
+                continue
+
+            with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+                names = [x for x in z.namelist() if not x.endswith("/")]
+                if not names:
+                    print("Invalid ZIP: no CSV file.")
                     continue
-                with zipfile.ZipFile(io.BytesIO(r.content)) as z:
-                    names = [x for x in z.namelist() if not x.endswith("/")]
-                    if not names:
-                        last_error = "ZIP contained no files"
-                        continue
-                    raw = z.read(names[0])
-                text = raw.decode("utf-8-sig", errors="ignore")
-                if len(text.strip()) < 100:
-                    last_error = "Downloaded CSV is empty"
+                raw = z.read(names[0])
+
+            text = raw.decode("utf-8-sig", errors="ignore")
+            if len(text.strip()) < 100:
+                print("Invalid Bhavcopy: CSV is empty.")
+                continue
+
+            # Validate in memory BEFORE accepting/saving the file.
+            nifty_rows = 0
+            ce_rows = 0
+            pe_rows = 0
+            reader = csv.DictReader(io.StringIO(text))
+            for raw_row in reader:
+                row = _norm_row(raw_row)
+                symbol = _field(row, "TCKRSYMB", "SYMBOL", "TICKERSYMBOL").upper()
+                if symbol != "NIFTY":
                     continue
-                with open("bhavcopy.csv","w",encoding="utf-8",newline="") as f:
-                    f.write(text)
-                print("Bhavcopy downloaded:", url)
-                return True
-            except Exception as e:
-                last_error = str(e)
-                print("Bhavcopy download error:", e)
 
-        current = now()
-        if final_attempt or current.hour >= final_hour:
-            print("21:00 IST final Bhavcopy attempt failed.")
-            if last_error: print("Last error:", last_error)
-            return False
+                opt = _field(row, "OPTNTP", "OPTION_TYP", "OPTIONTYPE").upper()
+                strike = _num(row, "STRKPRIC", "STRIKE_PR", "STRIKE")
+                close = _num(row, "CLSPRIC", "CLOSE", "CLOSE_PRICE")
 
-        next_try = current.replace(second=0,microsecond=0)
-        m = ((current.minute // interval_minutes)+1)*interval_minutes
-        next_try = (next_try.replace(minute=0)+dt.timedelta(hours=1)
-                    if m >= 60 else next_try.replace(minute=m))
-        final_time = current.replace(hour=final_hour,minute=0,second=0,microsecond=0)
-        target = min(next_try, final_time)
-        wait = max(1,int((target-current).total_seconds()))
-        print(f"Bhavcopy not available. Next attempt at {target:%H:%M:%S} IST")
-        time.sleep(wait)
+                if opt not in ("CE", "PE") or strike <= 0 or close <= 0:
+                    continue
+
+                nifty_rows += 1
+                if opt == "CE":
+                    ce_rows += 1
+                else:
+                    pe_rows += 1
+
+            if nifty_rows == 0 or ce_rows == 0 or pe_rows == 0:
+                print(
+                    "Downloaded file failed validation: "
+                    f"NIFTY={nifty_rows}, CE={ce_rows}, PE={pe_rows}"
+                )
+                continue
+
+            with open("bhavcopy.csv", "w", encoding="utf-8", newline="") as f:
+                f.write(text)
+
+            print(
+                f"BHAVCOPY READY: {nifty_rows} valid NIFTY option rows "
+                f"(CE={ce_rows}, PE={pe_rows})"
+            )
+            return True
+
+        except zipfile.BadZipFile:
+            print("Downloaded response is not a valid ZIP yet.")
+        except Exception as e:
+            print("Bhavcopy check error:", e)
+
+    print("Bhavcopy is not ready yet. A later GitHub schedule will retry.")
+    return False
 
 
 def _norm_row(r):
@@ -340,7 +364,8 @@ def process(spot, hi, lo):
     trade_day = t.date() if is_market_day(t.date()) and (t.hour > 15 or (t.hour == 15 and t.minute >= 30)) else previous_market_day(t.date())
     ready = download_bhavcopy(trade_day)
     if not ready:
-        return error_payload("NSE F&O Bhavcopy download failed.", spot)
+        print("WAITING: NSE Bhavcopy is not available/valid yet.")
+        return None
 
     full_bhav, expiries, option_rows = parse_bhav_file()
     if option_rows == 0:
@@ -372,21 +397,14 @@ def process(spot, hi, lo):
     ivatm, s1, s2 = atm50(spot), atm100(spot), hlc
     ce, pe = dominance(wb.get((hlc,"CE"))), dominance(wb.get((hlc,"PE")))
 
-    # Reuse one NSE option-chain request for both IV and time-value.
-    chain = nse_data()
-
     for obj, kind in ((ce,"CE"),(pe,"PE")):
         v = wb.get((ivatm,kind),{}).get("iv",0)
         if v > 0:
             obj["iv"] = round(v,2)
         elif obj["close"] > 0:
-            obj["iv"] = live_iv(
-                ivatm, wexp, kind,
-                wb.get((ivatm,kind),{}).get("close",0),
-                spot, chain
-            )
+            obj["iv"] = live_iv(ivatm,wexp,kind,wb.get((ivatm,kind),{}).get("close",0),spot)
 
-    tv = time_value(spot,wexp,wb,chain)
+    tv = time_value(spot,wexp,wb)
     get = lambda s,k: wb.get((s,k),{}).get("close",0)
     s1v = round((get(s1+100,"CE")+get(s1-100,"PE"))/2,2)
     s2v = round((get(s2+100,"CE")+get(s2-100,"PE"))/2,2)
@@ -443,7 +461,7 @@ if __name__ == "__main__":
         raise SystemExit(1)
 
     if not is_market_day(t.date()):
-        process(*spot)
+        print("Non-market day. Nothing to update.")
         raise SystemExit(0)
 
     if os.path.exists("data.json"):
