@@ -168,34 +168,63 @@ def daily_candles():
         print("Daily data error:", e)
         return []
 
-def download_bhavcopy(trade_date=None, retries=3, delay=15):
+def download_bhavcopy(trade_date=None, interval_minutes=15, final_hour=21):
+    """Retry every 15 minutes until 21:00 IST; stop immediately on success."""
     d = trade_date or previous_market_day(now().date())
-    ymd = d.strftime("%Y%m%d")
-    ddmmyyyy = d.strftime("%d%m%Y")
+    ymd, ddmmyyyy = d.strftime("%Y%m%d"), d.strftime("%d%m%Y")
     urls = [
         f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{ymd}_F_0000.csv.zip",
         f"https://nsearchives.nseindia.com/content/historical/DERIVATIVES/{d:%Y}/{d:%b}/fo{ddmmyyyy}bhav.csv.zip"
     ]
-    for url in urls:
-        for n in range(1, retries+1):
+    attempt, last_error = 0, ""
+    while True:
+        current = now()
+        attempt += 1
+        final_attempt = current.hour >= final_hour
+        print(f"Bhavcopy attempt {attempt} at {current:%Y-%m-%d %H:%M:%S} IST" +
+              (" [FINAL]" if final_attempt else ""))
+
+        for url in urls:
             try:
                 r = requests.get(url, headers=HEADERS, timeout=30)
                 if r.status_code != 200 or len(r.content) < 1000:
-                    print(f"Bhavcopy {n}: HTTP {r.status_code}")
+                    last_error = f"HTTP {r.status_code}, size={len(r.content)}"
+                    print("Bhavcopy unavailable:", last_error)
                     continue
                 with zipfile.ZipFile(io.BytesIO(r.content)) as z:
                     names = [x for x in z.namelist() if not x.endswith("/")]
-                    if not names: continue
+                    if not names:
+                        last_error = "ZIP contained no files"
+                        continue
                     raw = z.read(names[0])
                 text = raw.decode("utf-8-sig", errors="ignore")
-                with open("bhavcopy.csv", "w", encoding="utf-8", newline="") as f:
+                if len(text.strip()) < 100:
+                    last_error = "Downloaded CSV is empty"
+                    continue
+                with open("bhavcopy.csv","w",encoding="utf-8",newline="") as f:
                     f.write(text)
                 print("Bhavcopy downloaded:", url)
                 return True
             except Exception as e:
-                print(f"Bhavcopy {n} error:", e)
-            if n < retries: time.sleep(delay)
-    return False
+                last_error = str(e)
+                print("Bhavcopy download error:", e)
+
+        current = now()
+        if final_attempt or current.hour >= final_hour:
+            print("21:00 IST final Bhavcopy attempt failed.")
+            if last_error: print("Last error:", last_error)
+            return False
+
+        next_try = current.replace(second=0,microsecond=0)
+        m = ((current.minute // interval_minutes)+1)*interval_minutes
+        next_try = (next_try.replace(minute=0)+dt.timedelta(hours=1)
+                    if m >= 60 else next_try.replace(minute=m))
+        final_time = current.replace(hour=final_hour,minute=0,second=0,microsecond=0)
+        target = min(next_try, final_time)
+        wait = max(1,int((target-current).total_seconds()))
+        print(f"Bhavcopy not available. Next attempt at {target:%H:%M:%S} IST")
+        time.sleep(wait)
+
 
 def _norm_row(r):
     return {
