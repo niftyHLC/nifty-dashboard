@@ -177,7 +177,7 @@ def valid_highs(candles, max_count=5):
         if len(out) >= max_count:
             break
 
-    return out
+    return sorted(out)[:max_count]
 
 def daily_candles():
     try:
@@ -439,7 +439,10 @@ def process(spot, hi, lo):
     maxs = round(hlc+ce["close"]+pe["close"],2)
     maxd = round(hlc-ce["close"]-pe["close"],2)
 
-    highs = valid_highs(daily_candles())
+    # Keep only valid historical highs ABOVE Maximum Supply.
+    # Then display the five nearest levels above Maximum Supply, smallest first.
+    highs = [h for h in valid_highs(daily_candles(), max_count=100) if h > maxs]
+    highs = sorted(highs)[:5]
     wl, wh = math.floor(spot/100)*100, math.ceil(spot/100)*100
     diff = round(hi-lo,2)
 
