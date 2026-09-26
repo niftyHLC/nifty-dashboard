@@ -4,29 +4,31 @@ on:
   repository_dispatch:
     types: [run-dashboard-update]
   workflow_dispatch:
+  schedule:
+    # 10:15 UTC = 15:45 IST, Monday-Friday
+    - cron: '15 10 * * 1-5'
+
+concurrency:
+  group: daily-bhavcopy-update
+  cancel-in-progress: false
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 350
     permissions:
       contents: write
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
-
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests yfinance numpy scipy holidays
-
-      - name: Run update script and push changes
-        run: |
-          python update.py
+      - name: Run Bhavcopy Update
+        run: python update.py
