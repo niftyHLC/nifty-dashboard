@@ -145,13 +145,38 @@ def time_value(spot, expiry, bhav, data=None):
     }
 
 def valid_highs(candles, max_count=5):
-    out = []
-    for i in range(len(candles)-1, -1, -1):
+    """
+    H1 = latest available NIFTY daily candle high (previous trading-day high
+    when the dashboard is viewed before the next completed daily candle).
+
+    H2-H5 = older bearish daily-candle highs that have NOT been exceeded by
+    any later candle. Returned newest-to-oldest.
+    """
+    if not candles or max_count <= 0:
+        return []
+
+    # H1 must always be the latest completed/available daily high.
+    out = [round(float(candles[-1]["high"]), 2)]
+
+    # H2-H5: older valid unbroken bearish highs.
+    for i in range(len(candles) - 2, -1, -1):
         c = candles[i]
-        if c["close"] >= c["open"] or any(x["high"] > c["high"] for x in candles[i+1:]):
+
+        # Older level must come from a bearish candle.
+        if c["close"] >= c["open"]:
             continue
-        if c["high"] not in out: out.append(c["high"])
-        if len(out) >= max_count: break
+
+        # Broken if any later candle traded ABOVE this high.
+        if any(x["high"] > c["high"] for x in candles[i + 1:]):
+            continue
+
+        h = round(float(c["high"]), 2)
+        if h not in out:
+            out.append(h)
+
+        if len(out) >= max_count:
+            break
+
     return out
 
 def daily_candles():
@@ -415,7 +440,6 @@ def process(spot, hi, lo):
     maxd = round(hlc-ce["close"]-pe["close"],2)
 
     highs = valid_highs(daily_candles())
-    highs = [round(maxs+(maxs-h)+25,2) if h <= maxs else h for h in highs]
     wl, wh = math.floor(spot/100)*100, math.ceil(spot/100)*100
     diff = round(hi-lo,2)
 
