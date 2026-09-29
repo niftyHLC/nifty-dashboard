@@ -1,17 +1,13 @@
 name: Daily Bhavcopy Update
 
 on:
-  repository_dispatch:
-    types: [run-dashboard-update]
-
   workflow_dispatch:
 
   schedule:
-    # IST window: 15:35 to 21:00, Monday-Friday.
-    # GitHub cron uses UTC.
-    - cron: '5-55/5 10 * * 1-5'   # 15:35-16:25 IST
-    - cron: '*/5 11-14 * * 1-5'   # 16:30-20:25 IST
-    - cron: '0-30/5 15 * * 1-5'   # 20:30-21:00 IST
+    # 15:35 IST = 10:05 UTC, Monday-Friday.
+    # GitHub may start a scheduled job a little late; once started,
+    # this single job checks NSE itself every 5 minutes until 21:00 IST.
+    - cron: '5 10 * * 1-5'
 
 concurrency:
   group: daily-bhavcopy-update
@@ -20,7 +16,7 @@ concurrency:
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 350
 
     permissions:
       contents: write
@@ -40,5 +36,36 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests yfinance numpy scipy holidays
 
-      - name: Check NSE Bhavcopy and update dashboard
-        run: python update.py
+      - name: Wait for NSE Bhavcopy and update dashboard
+        shell: bash
+        run: |
+          while true; do
+            NOW_IST=$(TZ=Asia/Kolkata date '+%Y-%m-%d %H:%M:%S')
+            echo "[$NOW_IST IST] Checking NSE Bhavcopy..."
+
+            set +e
+            python update.py
+            CODE=$?
+            set -e
+
+            if [ "$CODE" -eq 0 ]; then
+              echo "Update completed, already processed, or non-market day. Stopping."
+              exit 0
+            fi
+
+            if [ "$CODE" -ne 75 ]; then
+              echo "update.py failed with exit code $CODE."
+              exit "$CODE"
+            fi
+
+            HOUR=$(TZ=Asia/Kolkata date +%H)
+            MINUTE=$(TZ=Asia/Kolkata date +%M)
+
+            if [ "$HOUR" -gt 21 ] || { [ "$HOUR" -eq 21 ] && [ "$MINUTE" -ge 0 ]; }; then
+              echo "Reached 21:00 IST without a valid Bhavcopy. Stopping cleanly."
+              exit 0
+            fi
+
+            echo "Bhavcopy not ready. Waiting 5 minutes..."
+            sleep 300
+          done
