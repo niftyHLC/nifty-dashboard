@@ -429,8 +429,12 @@ def process(spot, hi, lo):
     ivatm, s1, s2 = atm50(spot), atm100(spot), hlc
     ce, pe = dominance(wb.get((hlc,"CE"))), dominance(wb.get((hlc,"PE")))
 
-    # Fetch NSE Option Chain once and share it between IV and Time Value.
+    # Fetch NSE Option Chain once.
+    # It is mandatory because IV and Time Value must come directly from NSE.
     option_chain = nse_data()
+    if not option_chain:
+        print("WAITING: NSE Option Chain is unavailable. Will retry in 5 minutes.")
+        return None
 
     # IV: use the exact lower-boundary ATM strike and weekly expiry.
     ce["iv"] = live_iv(ivatm, wexp, "CE", data=option_chain)
@@ -438,6 +442,24 @@ def process(spot, hi, lo):
 
     # TV: (IV ATM + 50 CE LTP) + (IV ATM - 50 PE LTP), NSE Option Chain.
     tv = time_value(spot, wexp, data=option_chain)
+
+    # Never publish a SUCCESS payload with missing/zero NSE IV values.
+    if ce["iv"] <= 0 or pe["iv"] <= 0:
+        print(
+            f"WAITING: NSE IV incomplete at strike {ivatm}. "
+            f"CE IV={ce['iv']}, PE IV={pe['iv']}. Will retry in 5 minutes."
+        )
+        return None
+
+    # Never publish a SUCCESS payload with missing/zero NSE TV leg prices.
+    if tv["ceLtp"] <= 0 or tv["peLtp"] <= 0:
+        print(
+            "WAITING: NSE Time Value prices incomplete. "
+            f"CE {tv['ceStrike']} LTP={tv['ceLtp']}, "
+            f"PE {tv['peStrike']} LTP={tv['peLtp']}. "
+            "Will retry in 5 minutes."
+        )
+        return None
     get = lambda s,k: wb.get((s,k),{}).get("close",0)
     s1v = round((get(s1+100,"CE")+get(s1-100,"PE"))/2,2)
     s2v = round((get(s2+100,"CE")+get(s2-100,"PE"))/2,2)
