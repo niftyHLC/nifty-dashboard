@@ -201,22 +201,149 @@ def daily_candles():
 def download_bhavcopy(trade_date=None):
     """
     Make one fast attempt to get the requested NSE F&O Bhavcopy.
-    A single GitHub Actions job retries this script every 5 minutes until 21:00 IST.
-    A download counts as ready only if the ZIP/CSV contains valid NIFTY CE/PE rows.
+
+    Primary source:
+      https://nsearchives.nseindia.com/content/trdops/FNO_BCDDMMYYYY.DAT
+
+    The DAT file is converted to our existing normalized CSV layout so the
+    rest of the dashboard calculations do not need to change.
     """
     d = trade_date or previous_market_day(now().date())
     ymd = d.strftime("%Y%m%d")
     ddmmyyyy = d.strftime("%d%m%Y")
-    urls = [
+
+    # NSE's currently published F&O Bhavcopy DAT is the primary source.
+    dat_url = (
+        "https://nsearchives.nseindia.com/content/trdops/"
+        f"FNO_BC{ddmmyyyy}.DAT"
+    )
+
+    # Keep the older CSV ZIP locations only as fallbacks.
+    zip_urls = [
         f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{ymd}_F_0000.csv.zip",
-        f"https://nsearchives.nseindia.com/content/historical/DERIVATIVES/{d:%Y}/{d:%b}/fo{ddmmyyyy}bhav.csv.zip"
+        f"https://nsearchives.nseindia.com/content/historical/DERIVATIVES/{d:%Y}/{d:%b}/fo{ddmmyyyy}bhav.csv.zip",
     ]
 
-    for url in urls:
-        try:
-            print(f"Checking NSE Bhavcopy for {d}:", url)
-            r = requests.get(url, headers=HEADERS, timeout=30)
+    def validate_and_save(text):
+        if len(text.strip()) < 100:
+            print("Invalid Bhavcopy: file is empty.")
+            return False
 
+        reader = csv.reader(io.StringIO(text))
+        rows = list(reader)
+        if not rows:
+            return False
+
+        # DAT files use NSE's positional F&O layout. Convert the fields needed
+        # by the existing parser into a small normalized CSV.
+        first = [str(x).strip().upper() for x in rows[0]]
+        looks_headered = any(
+            x in first for x in ("TCKRSYMB", "SYMBOL", "TICKERSYMBOL")
+        )
+
+        normalized = []
+        if looks_headered:
+            dr = csv.DictReader(io.StringIO(text))
+            for raw_row in dr:
+                row = _norm_row(raw_row)
+                symbol = _field(row, "TCKRSYMB", "SYMBOL", "TICKERSYMBOL").upper()
+                opt = _field(row, "OPTNTP", "OPTION_TYP", "OPTIONTYPE").upper()
+                strike = _num(row, "STRKPRIC", "STRIKE_PR", "STRIKE")
+                close = _num(row, "CLSPRIC", "CLOSE", "CLOSE_PRICE")
+                if symbol != "NIFTY" or opt not in ("CE", "PE") or strike <= 0 or close <= 0:
+                    continue
+                normalized.append({
+                    "TCKRSYMB": symbol,
+                    "XPRYDT": _field(row, "XPRYDT", "EXPIRY_DT", "EXPIRY"),
+                    "STRKPRIC": strike,
+                    "OPTNTP": opt,
+                    "OPNPRIC": _num(row, "OPNPRIC", "OPENPRIC", "OPEN"),
+                    "HGHPRIC": _num(row, "HGHPRIC", "HIGH", "HIGH_PRICE"),
+                    "LWPRIC": _num(row, "LWPRIC", "LOW", "LOW_PRICE"),
+                    "CLSPRIC": close,
+                    "CHNGINOPNINTRST": _num(row, "CHNGINOPNINTRST", "CHGINOI", "CHG_IN_OI"),
+                })
+        else:
+            # FNO_BC*.DAT positional layout:
+            # instrument, symbol, expiry, strike, option type, open, high,
+            # low, close, ...  (remaining columns are not required here)
+            for cols in rows:
+                cols = [str(x).strip().strip('"') for x in cols]
+                if len(cols) < 9:
+                    continue
+                instrument = cols[0].upper()
+                symbol = cols[1].upper()
+                opt = cols[4].upper()
+                if symbol != "NIFTY" or opt not in ("CE", "PE"):
+                    continue
+                if instrument and instrument not in ("OPTIDX", "OPTSTK"):
+                    continue
+                try:
+                    strike = float(cols[3].replace(",", ""))
+                    opn = float(cols[5].replace(",", "") or 0)
+                    high = float(cols[6].replace(",", "") or 0)
+                    low = float(cols[7].replace(",", "") or 0)
+                    close = float(cols[8].replace(",", "") or 0)
+                except (ValueError, IndexError):
+                    continue
+                expiry = parse_date(cols[2])
+                if strike <= 0 or close <= 0 or not expiry:
+                    continue
+                normalized.append({
+                    "TCKRSYMB": symbol,
+                    "XPRYDT": expiry.strftime("%d-%b-%Y").upper(),
+                    "STRKPRIC": strike,
+                    "OPTNTP": opt,
+                    "OPNPRIC": opn,
+                    "HGHPRIC": high,
+                    "LWPRIC": low,
+                    "CLSPRIC": close,
+                    "CHNGINOPNINTRST": 0,
+                })
+
+        ce_rows = sum(1 for r in normalized if r["OPTNTP"] == "CE")
+        pe_rows = sum(1 for r in normalized if r["OPTNTP"] == "PE")
+        if not normalized or ce_rows == 0 or pe_rows == 0:
+            print(
+                "Downloaded file failed validation: "
+                f"NIFTY={len(normalized)}, CE={ce_rows}, PE={pe_rows}"
+            )
+            return False
+
+        fields = [
+            "TCKRSYMB", "XPRYDT", "STRKPRIC", "OPTNTP",
+            "OPNPRIC", "HGHPRIC", "LWPRIC", "CLSPRIC",
+            "CHNGINOPNINTRST",
+        ]
+        with open("bhavcopy.csv", "w", encoding="utf-8", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=fields)
+            w.writeheader()
+            w.writerows(normalized)
+
+        print(
+            f"BHAVCOPY READY: {len(normalized)} valid NIFTY option rows "
+            f"(CE={ce_rows}, PE={pe_rows})"
+        )
+        return True
+
+    # 1) Current NSE DAT source.
+    try:
+        print(f"Checking NSE DAT Bhavcopy for {d}:", dat_url)
+        r = requests.get(dat_url, headers=HEADERS, timeout=30)
+        if r.status_code == 200 and len(r.content) >= 1000:
+            dat_text = r.content.decode("utf-8-sig", errors="ignore")
+            if validate_and_save(dat_text):
+                return True
+        else:
+            print(f"DAT not ready: HTTP {r.status_code}, bytes={len(r.content)}")
+    except Exception as e:
+        print("DAT Bhavcopy check error:", e)
+
+    # 2) Older ZIP sources as fallbacks.
+    for url in zip_urls:
+        try:
+            print(f"Checking legacy NSE Bhavcopy for {d}:", url)
+            r = requests.get(url, headers=HEADERS, timeout=30)
             if r.status_code != 200 or len(r.content) < 1000:
                 print(f"Not ready: HTTP {r.status_code}, bytes={len(r.content)}")
                 continue
@@ -224,61 +351,19 @@ def download_bhavcopy(trade_date=None):
             with zipfile.ZipFile(io.BytesIO(r.content)) as z:
                 names = [x for x in z.namelist() if not x.endswith("/")]
                 if not names:
-                    print("Invalid ZIP: no CSV file.")
                     continue
                 raw = z.read(names[0])
 
-            text = raw.decode("utf-8-sig", errors="ignore")
-            if len(text.strip()) < 100:
-                print("Invalid Bhavcopy: CSV is empty.")
-                continue
-
-            # Validate in memory BEFORE accepting/saving the file.
-            nifty_rows = 0
-            ce_rows = 0
-            pe_rows = 0
-            reader = csv.DictReader(io.StringIO(text))
-            for raw_row in reader:
-                row = _norm_row(raw_row)
-                symbol = _field(row, "TCKRSYMB", "SYMBOL", "TICKERSYMBOL").upper()
-                if symbol != "NIFTY":
-                    continue
-
-                opt = _field(row, "OPTNTP", "OPTION_TYP", "OPTIONTYPE").upper()
-                strike = _num(row, "STRKPRIC", "STRIKE_PR", "STRIKE")
-                close = _num(row, "CLSPRIC", "CLOSE", "CLOSE_PRICE")
-
-                if opt not in ("CE", "PE") or strike <= 0 or close <= 0:
-                    continue
-
-                nifty_rows += 1
-                if opt == "CE":
-                    ce_rows += 1
-                else:
-                    pe_rows += 1
-
-            if nifty_rows == 0 or ce_rows == 0 or pe_rows == 0:
-                print(
-                    "Downloaded file failed validation: "
-                    f"NIFTY={nifty_rows}, CE={ce_rows}, PE={pe_rows}"
-                )
-                continue
-
-            with open("bhavcopy.csv", "w", encoding="utf-8", newline="") as f:
-                f.write(text)
-
-            print(
-                f"BHAVCOPY READY: {nifty_rows} valid NIFTY option rows "
-                f"(CE={ce_rows}, PE={pe_rows})"
-            )
-            return True
+            zip_text = raw.decode("utf-8-sig", errors="ignore")
+            if validate_and_save(zip_text):
+                return True
 
         except zipfile.BadZipFile:
             print("Downloaded response is not a valid ZIP yet.")
         except Exception as e:
-            print("Bhavcopy check error:", e)
+            print("Legacy Bhavcopy check error:", e)
 
-    print("Bhavcopy is not ready yet. A later GitHub schedule will retry.")
+    print("Bhavcopy is not ready yet. This workflow will retry.")
     return False
 
 
