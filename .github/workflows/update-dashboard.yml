@@ -3,11 +3,8 @@ name: Daily Bhavcopy Update
 on:
   workflow_dispatch:
 
-  schedule:
-    # 15:35 IST = 10:05 UTC, Monday-Friday.
-    # GitHub may start a scheduled job a little late; once started,
-    # this single job checks NSE itself every 5 minutes until 21:00 IST.
-    - cron: '5 10 * * 1-5'
+permissions:
+  contents: write
 
 concurrency:
   group: daily-bhavcopy-update
@@ -17,9 +14,8 @@ jobs:
   update-data:
     runs-on: ubuntu-latest
     timeout-minutes: 350
-
-    permissions:
-      contents: write
+    env:
+      UPSTOX_ACCESS_TOKEN: ${{ secrets.UPSTOX_ACCESS_TOKEN }}
 
     steps:
       - name: Checkout Repository
@@ -29,7 +25,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
 
       - name: Install Dependencies
         run: |
@@ -40,32 +35,29 @@ jobs:
         shell: bash
         run: |
           while true; do
-            NOW_IST=$(TZ=Asia/Kolkata date '+%Y-%m-%d %H:%M:%S')
-            echo "[$NOW_IST IST] Checking NSE Bhavcopy..."
-
+            echo "[$(TZ=Asia/Kolkata date '+%Y-%m-%d %H:%M:%S IST')] Checking NSE Bhavcopy..."
             set +e
             python update.py
-            CODE=$?
+            code=$?
             set -e
 
-            if [ "$CODE" -eq 0 ]; then
+            if [ "$code" -eq 0 ]; then
               echo "Update completed, already processed, or non-market day. Stopping."
               exit 0
             fi
 
-            if [ "$CODE" -ne 75 ]; then
-              echo "update.py failed with exit code $CODE."
-              exit "$CODE"
+            if [ "$code" -ne 75 ]; then
+              echo "update.py failed with exit code $code"
+              exit "$code"
             fi
 
-            HOUR=$(TZ=Asia/Kolkata date +%H)
-            MINUTE=$(TZ=Asia/Kolkata date +%M)
-
-            if [ "$HOUR" -gt 21 ] || { [ "$HOUR" -eq 21 ] && [ "$MINUTE" -ge 0 ]; }; then
-              echo "Reached 21:00 IST without a valid Bhavcopy. Stopping cleanly."
+            hour=$(TZ=Asia/Kolkata date +%H)
+            minute=$(TZ=Asia/Kolkata date +%M)
+            if [ "$hour" -gt 21 ] || { [ "$hour" -eq 21 ] && [ "$minute" -ge 0 ]; }; then
+              echo "Reached 21:00 IST. Stopping cleanly."
               exit 0
             fi
 
-            echo "Required NSE data not ready. Waiting 5 minutes..."
+            echo "Required market data not ready. Waiting 5 minutes..."
             sleep 300
           done
