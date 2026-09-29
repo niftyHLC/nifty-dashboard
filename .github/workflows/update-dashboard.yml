@@ -3,12 +3,6 @@ name: Daily Bhavcopy Update
 on:
   workflow_dispatch:
 
-  schedule:
-    # 15:35 IST = 10:05 UTC, Monday-Friday.
-    # GitHub may start a scheduled job a little late; once started,
-    # this single job checks NSE itself every 5 minutes until 21:00 IST.
-    - cron: '5 10 * * 1-5'
-
 concurrency:
   group: daily-bhavcopy-update
   cancel-in-progress: false
