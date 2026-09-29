@@ -351,10 +351,10 @@ def download_bhavcopy(trade_date=None):
                     continue
                 try:
                     strike = float(cols[4].replace(",", ""))
-                    opn = float(cols[9].replace(",", "") or 0)
-                    high = float(cols[10].replace(",", "") or 0)
-                    low = float(cols[11].replace(",", "") or 0)
-                    close = float(cols[12].replace(",", "") or 0)
+                    opn = float(cols[10].replace(",", "") or 0)
+                    high = float(cols[11].replace(",", "") or 0)
+                    low = float(cols[12].replace(",", "") or 0)
+                    close = float(cols[13].replace(",", "") or 0)
                 except (ValueError, IndexError):
                     continue
                 expiry = dt.datetime.strptime(cols[3], "%d%m%Y").date()
