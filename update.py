@@ -63,16 +63,50 @@ def fetch_spot():
 def nse_data(symbol="NIFTY"):
     try:
         s = requests.Session()
-        s.get("https://www.nseindia.com", headers=HEADERS, timeout=10)
-        time.sleep(.4)
-        r = s.get(
-            f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}",
-            headers=HEADERS, timeout=15
+
+        # First visit NSE home page to obtain cookies/session.
+        home = s.get("https://www.nseindia.com", headers=HEADERS, timeout=10)
+        print(
+            f"NSE Home HTTP: {home.status_code}, "
+            f"bytes={len(home.content)}, "
+            f"cookies={len(s.cookies)}"
         )
-        return r.json() if r.status_code == 200 else None
+
+        time.sleep(.4)
+
+        url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
+        r = s.get(url, headers=HEADERS, timeout=15)
+
+        print(
+            f"NSE Option Chain HTTP: {r.status_code}, "
+            f"bytes={len(r.content)}, "
+            f"content-type={r.headers.get('content-type')}"
+        )
+
+        if r.status_code != 200:
+            print("NSE Option Chain response:", r.text[:300].replace("\n", " "))
+            return None
+
+        try:
+            data = r.json()
+        except Exception as e:
+            print("NSE Option Chain JSON error:", e)
+            print("NSE Option Chain response:", r.text[:300].replace("\n", " "))
+            return None
+
+        records = data.get("records", {}).get("data", [])
+        print(f"NSE Option Chain records: {len(records)}")
+
+        if not records:
+            print("NSE Option Chain returned HTTP 200 but no option records.")
+            return None
+
+        return data
+
     except Exception as e:
-        print("NSE option-chain error:", e)
+        print("NSE option-chain error:", repr(e))
         return None
+
 
 def atm50(x):
     """
