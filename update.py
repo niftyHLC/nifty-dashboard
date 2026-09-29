@@ -60,51 +60,88 @@ def fetch_spot():
         print("Spot error:", e)
     return None
 
-def nse_data(symbol="NIFTY"):
+def nse_data(symbol="NIFTY", expiry=None):
+    """Fetch NIFTY option chain from Upstox using the read-only Analytics Token."""
+    token = os.environ.get("UPSTOX_ACCESS_TOKEN", "").strip()
+    if not token:
+        print("UPSTOX ERROR: UPSTOX_ACCESS_TOKEN is not available in the environment.")
+        return None
+
+    expiry_date = parse_date(expiry)
+    if not expiry_date:
+        print("UPSTOX ERROR: valid expiry date is required.")
+        return None
+
+    url = "https://api.upstox.com/v2/option/chain"
+    params = {
+        "instrument_key": "NSE_INDEX|Nifty 50",
+        "expiry_date": expiry_date.strftime("%Y-%m-%d"),
+    }
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
+
     try:
-        s = requests.Session()
-
-        # First visit NSE home page to obtain cookies/session.
-        home = s.get("https://www.nseindia.com", headers=HEADERS, timeout=10)
+        r = requests.get(url, params=params, headers=headers, timeout=20)
         print(
-            f"NSE Home HTTP: {home.status_code}, "
-            f"bytes={len(home.content)}, "
-            f"cookies={len(s.cookies)}"
-        )
-
-        time.sleep(.4)
-
-        url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
-        r = s.get(url, headers=HEADERS, timeout=15)
-
-        print(
-            f"NSE Option Chain HTTP: {r.status_code}, "
+            f"Upstox Option Chain HTTP: {r.status_code}, "
             f"bytes={len(r.content)}, "
             f"content-type={r.headers.get('content-type')}"
         )
-
         if r.status_code != 200:
-            print("NSE Option Chain response:", r.text[:300].replace("\n", " "))
+            print("Upstox response:", r.text[:500].replace("\n", " "))
             return None
 
-        try:
-            data = r.json()
-        except Exception as e:
-            print("NSE Option Chain JSON error:", e)
-            print("NSE Option Chain response:", r.text[:300].replace("\n", " "))
+        payload = r.json()
+        rows = payload.get("data", [])
+        print(f"Upstox Option Chain records: {len(rows)}")
+        if not rows:
             return None
 
-        records = data.get("records", {}).get("data", [])
-        print(f"NSE Option Chain records: {len(records)}")
+        # Normalize Upstox into the same records/data shape used by the rest
+        # of this script, so existing IV and Time Value logic stays unchanged.
+        normalized = []
+        for x in rows:
+            try:
+                strike = float(x.get("strike_price", 0) or 0)
+                exp = parse_date(x.get("expiry"))
+                if strike <= 0 or exp != expiry_date:
+                    continue
 
-        if not records:
-            print("NSE Option Chain returned HTTP 200 but no option records.")
-            return None
+                row = {
+                    "strikePrice": strike,
+                    "CE": {},
+                    "PE": {},
+                }
 
-        return data
+                co = x.get("call_options") or {}
+                cm = co.get("market_data") or {}
+                cg = co.get("option_greeks") or {}
+                row["CE"] = {
+                    "expiryDate": expiry_date.strftime("%Y-%m-%d"),
+                    "lastPrice": float(cm.get("ltp", 0) or 0),
+                    "impliedVolatility": float(cg.get("iv", cm.get("iv", 0)) or 0),
+                }
+
+                po = x.get("put_options") or {}
+                pm = po.get("market_data") or {}
+                pg = po.get("option_greeks") or {}
+                row["PE"] = {
+                    "expiryDate": expiry_date.strftime("%Y-%m-%d"),
+                    "lastPrice": float(pm.get("ltp", 0) or 0),
+                    "impliedVolatility": float(pg.get("iv", pm.get("iv", 0)) or 0),
+                }
+
+                normalized.append(row)
+            except Exception:
+                continue
+
+        print(f"Upstox normalized records: {len(normalized)}")
+        return {"records": {"data": normalized}} if normalized else None
 
     except Exception as e:
-        print("NSE option-chain error:", repr(e))
+        print("Upstox option-chain error:", repr(e))
         return None
 
 
@@ -137,8 +174,8 @@ def bs_iv(kind, price, spot, strike, expiry):
         return 0.0
 
 def live_iv(strike, expiry, kind, price=0, spot=0, data=None):
-    """Return NSE Option Chain IV for the exact strike + expiry + CE/PE."""
-    data = data or nse_data()
+    """Return Upstox Option Chain IV for the exact strike + expiry + CE/PE."""
+    data = data or nse_data(expiry=expiry)
     if not data:
         return 0.0
     target = parse_date(expiry)
@@ -161,7 +198,7 @@ def time_value(spot, expiry, bhav=None, data=None):
     atm = atm50(spot)
     ce_strike, pe_strike = atm + 50, atm - 50
     ce_ltp = pe_ltp = 0.0
-    data = data or nse_data()
+    data = data or nse_data(expiry=expiry)
 
     if data:
         target = parse_date(expiry)
@@ -594,11 +631,11 @@ def process(spot, hi, lo):
     ivatm, s1, s2 = atm50(spot), atm100(spot), hlc
     ce, pe = dominance(wb.get((hlc,"CE"))), dominance(wb.get((hlc,"PE")))
 
-    # Fetch NSE Option Chain once.
+    # Fetch Upstox Option Chain once.
     # It is mandatory because IV and Time Value must come directly from NSE.
-    option_chain = nse_data()
+    option_chain = nse_data(expiry=wexp)
     if not option_chain:
-        message = "Data Not Ready Yet - NSE Option Chain is unavailable."
+        message = "Data Not Ready Yet - Upstox Option Chain is unavailable."
         print("WAITING:", message, "Will retry in 5 minutes.")
         return mark_waiting(message, spot, trade_day)
 
@@ -606,13 +643,13 @@ def process(spot, hi, lo):
     ce["iv"] = live_iv(ivatm, wexp, "CE", data=option_chain)
     pe["iv"] = live_iv(ivatm, wexp, "PE", data=option_chain)
 
-    # TV: (IV ATM + 50 CE LTP) + (IV ATM - 50 PE LTP), NSE Option Chain.
+    # TV: (IV ATM + 50 CE LTP) + (IV ATM - 50 PE LTP), Upstox Option Chain.
     tv = time_value(spot, wexp, data=option_chain)
 
     # Never publish a SUCCESS payload with missing/zero NSE IV values.
     if ce["iv"] <= 0 or pe["iv"] <= 0:
         message = (
-            f"Data Not Ready Yet - NSE IV incomplete at strike {ivatm}. "
+            f"Data Not Ready Yet - Upstox IV incomplete at strike {ivatm}. "
             f"CE IV={ce['iv']}, PE IV={pe['iv']}."
         )
         print("WAITING:", message, "Will retry in 5 minutes.")
@@ -621,7 +658,7 @@ def process(spot, hi, lo):
     # Never publish a SUCCESS payload with missing/zero NSE TV leg prices.
     if tv["ceLtp"] <= 0 or tv["peLtp"] <= 0:
         message = (
-            "Data Not Ready Yet - NSE Time Value prices incomplete. "
+            "Data Not Ready Yet - Upstox Time Value prices incomplete. "
             f"CE {tv['ceStrike']} LTP={tv['ceLtp']}, "
             f"PE {tv['peStrike']} LTP={tv['peLtp']}."
         )
