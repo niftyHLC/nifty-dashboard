@@ -201,7 +201,7 @@ def daily_candles():
 def download_bhavcopy(trade_date=None):
     """
     Make one fast attempt to get the requested NSE F&O Bhavcopy.
-    GitHub Actions repeats this script every 5 minutes until 21:00 IST.
+    A single GitHub Actions job retries this script every 5 minutes until 21:00 IST.
     A download counts as ready only if the ZIP/CSV contains valid NIFTY CE/PE rows.
     """
     d = trade_date or previous_market_day(now().date())
@@ -511,4 +511,8 @@ if __name__ == "__main__":
         except Exception:
             pass
 
-    raise SystemExit(0 if process(*spot) else 1)
+    result = process(*spot)
+    if result is None:
+        # Exit 75 means: valid NSE Bhavcopy is not ready yet; workflow should retry.
+        raise SystemExit(75)
+    raise SystemExit(0 if result else 1)
