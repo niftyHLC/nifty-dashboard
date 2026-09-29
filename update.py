@@ -271,22 +271,22 @@ def download_bhavcopy(trade_date=None):
                 cols = [str(x).strip().strip('"') for x in cols]
                 if len(cols) < 9:
                     continue
-                instrument = cols[0].upper()
-                symbol = cols[1].upper()
-                opt = cols[4].upper()
+                instrument = cols[1].upper()
+                symbol = cols[2].upper()
+                opt = cols[5].upper()
                 if symbol != "NIFTY" or opt not in ("CE", "PE"):
                     continue
                 if instrument and instrument not in ("OPTIDX", "OPTSTK"):
                     continue
                 try:
-                    strike = float(cols[3].replace(",", ""))
-                    opn = float(cols[5].replace(",", "") or 0)
-                    high = float(cols[6].replace(",", "") or 0)
-                    low = float(cols[7].replace(",", "") or 0)
-                    close = float(cols[8].replace(",", "") or 0)
+                    strike = float(cols[4].replace(",", ""))
+                    opn = float(cols[9].replace(",", "") or 0)
+                    high = float(cols[10].replace(",", "") or 0)
+                    low = float(cols[11].replace(",", "") or 0)
+                    close = float(cols[12].replace(",", "") or 0)
                 except (ValueError, IndexError):
                     continue
-                expiry = parse_date(cols[2])
+                expiry = dt.datetime.strptime(cols[3], "%d%m%Y").date()
                 if strike <= 0 or close <= 0 or not expiry:
                     continue
                 normalized.append({
@@ -298,7 +298,7 @@ def download_bhavcopy(trade_date=None):
                     "HGHPRIC": high,
                     "LWPRIC": low,
                     "CLSPRIC": close,
-                    "CHNGINOPNINTRST": 0,
+                    "CHNGINOPNINTRST": float(cols[18].replace(",", "") or 0) if len(cols) > 18 else 0,
                 })
 
         ce_rows = sum(1 for r in normalized if r["OPTNTP"] == "CE")
