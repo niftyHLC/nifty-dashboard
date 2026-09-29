@@ -379,6 +379,51 @@ def error_payload(message, spot=None):
     print("ERROR:", message)
     return False
 
+def mark_waiting(message, spot=None, trade_day=None):
+    """
+    Publish one WAITING state while preserving the last good dashboard values.
+    This shows the warning without replacing previous values with zeros.
+    """
+    payload = {}
+    if os.path.exists("data.json"):
+        try:
+            with open("data.json", encoding="utf-8") as f:
+                old = json.load(f)
+            if isinstance(old, dict):
+                payload = old
+        except Exception:
+            payload = {}
+
+    trade_key = (
+        trade_day.strftime("%Y-%m-%d")
+        if isinstance(trade_day, dt.date)
+        else str(trade_day or "")
+    )
+
+    already_waiting = (
+        payload.get("dataStatus") == "WAITING"
+        and payload.get("waitingTradeDate") == trade_key
+    )
+
+    payload["dataStatus"] = "WAITING"
+    payload["bhavcopyReady"] = False
+    payload["waitingMessage"] = message
+    payload["waitingTradeDate"] = trade_key
+
+    if spot and not payload.get("spotPrice"):
+        payload["spotPrice"] = spot
+
+    if not already_waiting:
+        payload["waitingSince"] = now().isoformat()
+        with open("data.json", "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=4)
+        print("WAITING STATUS PUBLISHED:", message)
+        push()
+    else:
+        print("WAITING STATUS ALREADY PUBLISHED:", message)
+
+    return None
+
 def push():
     try:
         subprocess.run(["git","config","--global","user.name","github-actions[bot]"],check=True)
@@ -396,8 +441,9 @@ def process(spot, hi, lo):
     trade_day = t.date() if is_market_day(t.date()) and (t.hour > 15 or (t.hour == 15 and t.minute >= 30)) else previous_market_day(t.date())
     ready = download_bhavcopy(trade_day)
     if not ready:
-        print("WAITING: NSE Bhavcopy is not available/valid yet.")
-        return None
+        message = "Data Not Ready Yet - NSE Bhavcopy is not available/valid yet."
+        print("WAITING:", message)
+        return mark_waiting(message, spot, trade_day)
 
     full_bhav, expiries, option_rows = parse_bhav_file()
     if option_rows == 0:
@@ -433,8 +479,9 @@ def process(spot, hi, lo):
     # It is mandatory because IV and Time Value must come directly from NSE.
     option_chain = nse_data()
     if not option_chain:
-        print("WAITING: NSE Option Chain is unavailable. Will retry in 5 minutes.")
-        return None
+        message = "Data Not Ready Yet - NSE Option Chain is unavailable."
+        print("WAITING:", message, "Will retry in 5 minutes.")
+        return mark_waiting(message, spot, trade_day)
 
     # IV: use the exact lower-boundary ATM strike and weekly expiry.
     ce["iv"] = live_iv(ivatm, wexp, "CE", data=option_chain)
@@ -445,21 +492,22 @@ def process(spot, hi, lo):
 
     # Never publish a SUCCESS payload with missing/zero NSE IV values.
     if ce["iv"] <= 0 or pe["iv"] <= 0:
-        print(
-            f"WAITING: NSE IV incomplete at strike {ivatm}. "
-            f"CE IV={ce['iv']}, PE IV={pe['iv']}. Will retry in 5 minutes."
+        message = (
+            f"Data Not Ready Yet - NSE IV incomplete at strike {ivatm}. "
+            f"CE IV={ce['iv']}, PE IV={pe['iv']}."
         )
-        return None
+        print("WAITING:", message, "Will retry in 5 minutes.")
+        return mark_waiting(message, spot, trade_day)
 
     # Never publish a SUCCESS payload with missing/zero NSE TV leg prices.
     if tv["ceLtp"] <= 0 or tv["peLtp"] <= 0:
-        print(
-            "WAITING: NSE Time Value prices incomplete. "
+        message = (
+            "Data Not Ready Yet - NSE Time Value prices incomplete. "
             f"CE {tv['ceStrike']} LTP={tv['ceLtp']}, "
-            f"PE {tv['peStrike']} LTP={tv['peLtp']}. "
-            "Will retry in 5 minutes."
+            f"PE {tv['peStrike']} LTP={tv['peLtp']}."
         )
-        return None
+        print("WAITING:", message, "Will retry in 5 minutes.")
+        return mark_waiting(message, spot, trade_day)
     get = lambda s,k: wb.get((s,k),{}).get("close",0)
     s1v = round((get(s1+100,"CE")+get(s1-100,"PE"))/2,2)
     s2v = round((get(s2+100,"CE")+get(s2-100,"PE"))/2,2)
