@@ -1,1 +1,96 @@
-
+{
+    "dataStatus": "SUCCESS",
+    "bhavcopyReady": true,
+    "currentDate": "30 SEP 2026",
+    "expiryDate": "2026-10-06",
+    "spotPrice": 22716.19921875,
+    "hlcAtmStrike": 22800,
+    "ivAtmStrike": 22700,
+    "ce": {
+        "high": 189.0,
+        "close": 156.1,
+        "low": 111.9,
+        "iv": 14.98,
+        "hc": 32.9,
+        "cl": 44.2,
+        "dominance": "NEUTRAL",
+        "themeColor": "orange",
+        "tagClass": "tag-neutral"
+    },
+    "pe": {
+        "high": 273.4,
+        "close": 150.9,
+        "low": 134.85,
+        "iv": 10.69,
+        "hc": 122.5,
+        "cl": 16.05,
+        "dominance": "SELLERS",
+        "themeColor": "red",
+        "tagClass": "tag-sellers"
+    },
+    "ceTag": "NEUTRAL",
+    "ceClass": "tag-neutral",
+    "peTag": "SELLERS",
+    "peClass": "tag-sellers",
+    "bannerTotal": 5.2,
+    "asymmetricTimeValue": {
+        "total": 279.25,
+        "ceStrike": 22750,
+        "ceLtp": 190.35,
+        "peStrike": 22650,
+        "peLtp": 88.9
+    },
+    "minSupply": 22956.1,
+    "minDemand": 22649.1,
+    "maxSupply": 23107.0,
+    "maxDemand": 22493.0,
+    "sellersArea": {
+        "min": 22956.1,
+        "max": 23107.0,
+        "validUnbrokenHighs": [
+            23281.95,
+            23489.0,
+            23592.85,
+            23758.95,
+            23890.0
+        ]
+    },
+    "buyersArea": {
+        "min": 22649.1,
+        "max": 22493.0
+    },
+    "weeklyZones": {
+        "line1": 23025.6,
+        "line2": 22493.0
+    },
+    "monthlyZones": {
+        "line1": 23361.0,
+        "line2": 22162.0
+    },
+    "spotHigh": 22753.25,
+    "spotLow": 22569.650390625,
+    "spotDifference": 183.6,
+    "earthLevel": 47.94,
+    "sniper1": {
+        "strike": 22700,
+        "ce": 214.1,
+        "pe": 111.5,
+        "otmCeStrike": 22800,
+        "otmPeStrike": 22600,
+        "otmCe": 156.1,
+        "otmPe": 80.4,
+        "value": 118.25
+    },
+    "sniper2": {
+        "strike": 22800,
+        "ce": 156.1,
+        "pe": 150.9,
+        "otmCeStrike": 22900,
+        "otmPeStrike": 22700,
+        "otmCe": 108.0,
+        "otmPe": 111.5,
+        "value": 109.75
+    },
+    "optionRowsParsed": 1908,
+    "bhavcopyTradeDate": "2026-09-29"
+}
