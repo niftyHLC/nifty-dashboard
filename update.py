@@ -151,6 +151,15 @@ def atm50(x):
     Example: underlying between 23150 and 23200 -> 23150.
     """
     return int(math.floor(float(x) / 50.0) * 50)
+def iv_tv_reference_strike(spot):
+    """Choose the first 50-point strike at or above spot.
+
+    Example: spot 22642.20 -> highlighted pair 22650/22700 -> 22650.
+    This uses spot as a proxy; the Upstox response does not expose NSE row colors.
+    """
+    return int(math.ceil(float(spot) / 50.0) * 50)
+
+
 def atm100(x): return int(round(float(x) / 100) * 100)
 
 def bs_iv(kind, price, spot, strike, expiry):
@@ -193,9 +202,9 @@ def live_iv(strike, expiry, kind, price=0, spot=0, data=None):
             continue
     return 0.0
 
-def time_value(spot, expiry, bhav=None, data=None):
-    """TV = NSE (lower-boundary ATM + 50 CE LTP) + NSE (ATM - 50 PE LTP)."""
-    atm = atm50(spot)
+def time_value(spot, expiry, bhav=None, data=None, reference_strike=None):
+    """TV = (common IV/TV strike + 50 CE LTP) + (strike - 50 PE LTP)."""
+    atm = iv_tv_reference_strike(spot) if reference_strike is None else int(reference_strike)
     ce_strike, pe_strike = atm + 50, atm - 50
     ce_ltp = pe_ltp = 0.0
     data = data or nse_data(expiry=expiry)
@@ -628,7 +637,8 @@ def process(spot, hi, lo):
         if ce0 > 0 and pe0 > 0 and abs(ce0-pe0) < mindiff:
             mindiff, hlc = abs(ce0-pe0), s
 
-    ivatm, s1, s2 = atm50(spot), atm100(spot), hlc
+    ivatm, s1, s2 = iv_tv_reference_strike(spot), atm100(spot), hlc
+    print(f"IV/TV reference strike: {ivatm} (spot={spot}; next strike={ivatm + 50})")
     ce, pe = dominance(wb.get((hlc,"CE"))), dominance(wb.get((hlc,"PE")))
 
     # Fetch Upstox Option Chain once.
@@ -639,12 +649,12 @@ def process(spot, hi, lo):
         print("WAITING:", message, "Will retry in 5 minutes.")
         return mark_waiting(message, spot, trade_day)
 
-    # IV: use the exact lower-boundary ATM strike and weekly expiry.
+    # IV: use the common IV/TV reference strike and weekly expiry.
     ce["iv"] = live_iv(ivatm, wexp, "CE", data=option_chain)
     pe["iv"] = live_iv(ivatm, wexp, "PE", data=option_chain)
 
     # TV: (IV ATM + 50 CE LTP) + (IV ATM - 50 PE LTP), Upstox Option Chain.
-    tv = time_value(spot, wexp, data=option_chain)
+    tv = time_value(spot, wexp, data=option_chain, reference_strike=ivatm)
 
     # Never publish a SUCCESS payload with missing/zero NSE IV values.
     if ce["iv"] <= 0 or pe["iv"] <= 0:
