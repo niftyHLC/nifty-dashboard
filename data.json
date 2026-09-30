@@ -1,99 +1,101 @@
 {
-    "dataStatus": "WAITING",
-    "bhavcopyReady": false,
-    "currentDate": "30 SEP 2026",
+    "dataStatus": "SUCCESS",
+    "bhavcopyReady": true,
+    "currentDate": "01 OCT 2026",
     "expiryDate": "2026-10-06",
-    "spotPrice": 22716.19921875,
-    "hlcAtmStrike": 22800,
-    "ivAtmStrike": 22700,
-    "ce": {
-        "high": 189.0,
-        "close": 156.1,
-        "low": 111.9,
-        "iv": 14.98,
-        "hc": 32.9,
-        "cl": 44.2,
-        "dominance": "NEUTRAL",
-        "themeColor": "orange",
-        "tagClass": "tag-neutral"
+    "spotPrice": 22620.44921875,
+    "hlcAtmStrike": 22650,
+    "ivAtmStrike": 22600,
+    "ivTvBoundaryVerification": {
+        "status": "UNVERIFIED",
+        "method": "NEAREST_AVAILABLE_UPSTOX_STRIKE",
+        "reason": "No dated NSE boundary observation was supplied; visual match cannot be guaranteed."
     },
-    "pe": {
-        "high": 273.4,
-        "close": 150.9,
-        "low": 134.85,
-        "iv": 10.69,
-        "hc": 122.5,
-        "cl": 16.05,
+    "ce": {
+        "high": 274.9,
+        "close": 137.25,
+        "low": 127.55,
+        "iv": 12.02,
+        "hc": 137.65,
+        "cl": 9.7,
         "dominance": "SELLERS",
         "themeColor": "red",
         "tagClass": "tag-sellers"
     },
-    "ceTag": "NEUTRAL",
-    "ceClass": "tag-neutral",
-    "peTag": "SELLERS",
-    "peClass": "tag-sellers",
-    "bannerTotal": 5.2,
-    "asymmetricTimeValue": {
-        "total": 279.25,
-        "ceStrike": 22750,
-        "ceLtp": 190.35,
-        "peStrike": 22650,
-        "peLtp": 88.9
+    "pe": {
+        "high": 159.0,
+        "close": 137.5,
+        "low": 65.6,
+        "iv": 11.92,
+        "hc": 21.5,
+        "cl": 71.9,
+        "dominance": "BUYERS",
+        "themeColor": "green",
+        "tagClass": "tag-buyers"
     },
-    "minSupply": 22956.1,
-    "minDemand": 22649.1,
-    "maxSupply": 23107.0,
-    "maxDemand": 22493.0,
+    "ceTag": "SELLERS",
+    "ceClass": "tag-sellers",
+    "peTag": "BUYERS",
+    "peClass": "tag-buyers",
+    "bannerTotal": 0.25,
+    "asymmetricTimeValue": {
+        "total": 231.2,
+        "ceStrike": 22650,
+        "ceLtp": 133.2,
+        "peStrike": 22550,
+        "peLtp": 98.0
+    },
+    "minSupply": 22787.25,
+    "minDemand": 22512.5,
+    "maxSupply": 22924.75,
+    "maxDemand": 22375.25,
     "sellersArea": {
-        "min": 22956.1,
-        "max": 23107.0,
+        "min": 22787.25,
+        "max": 22924.75,
         "validUnbrokenHighs": [
+            23080.25,
             23281.95,
             23489.0,
             23592.85,
-            23758.95,
-            23890.0
+            23758.95
         ]
     },
     "buyersArea": {
-        "min": 22649.1,
-        "max": 22493.0
+        "min": 22512.5,
+        "max": 22375.25
     },
     "weeklyZones": {
-        "line1": 23025.6,
-        "line2": 22493.0
+        "line1": 22879.15,
+        "line2": 22423.5
     },
     "monthlyZones": {
-        "line1": 23361.0,
-        "line2": 22162.0
+        "line1": 23230.95,
+        "line2": 22084.6
     },
-    "spotHigh": 22753.25,
-    "spotLow": 22569.650390625,
-    "spotDifference": 183.6,
-    "earthLevel": 47.94,
+    "spotHigh": 22809.349609375,
+    "spotLow": 22595.19921875,
+    "spotDifference": 214.15,
+    "earthLevel": 55.91,
     "sniper1": {
-        "strike": 22700,
-        "ce": 214.1,
-        "pe": 111.5,
-        "otmCeStrike": 22800,
-        "otmPeStrike": 22600,
-        "otmCe": 156.1,
-        "otmPe": 80.4,
-        "value": 118.25
+        "strike": 22600,
+        "ce": 164.5,
+        "pe": 114.65,
+        "otmCeStrike": 22700,
+        "otmPeStrike": 22500,
+        "otmCe": 113.15,
+        "otmPe": 77.5,
+        "value": 95.33
     },
     "sniper2": {
-        "strike": 22800,
-        "ce": 156.1,
-        "pe": 150.9,
-        "otmCeStrike": 22900,
-        "otmPeStrike": 22700,
-        "otmCe": 108.0,
-        "otmPe": 111.5,
-        "value": 109.75
+        "strike": 22650,
+        "ce": 137.25,
+        "pe": 137.5,
+        "otmCeStrike": 22750,
+        "otmPeStrike": 22550,
+        "otmCe": 92.35,
+        "otmPe": 94.8,
+        "value": 93.57
     },
-    "optionRowsParsed": 1908,
-    "bhavcopyTradeDate": "2026-09-29",
-    "waitingMessage": "Data Not Ready Yet - NSE Bhavcopy is not available/valid yet.",
-    "waitingTradeDate": "2026-09-30",
-    "waitingSince": "2026-09-30T15:35:42.553497+05:30"
+    "optionRowsParsed": 1774,
+    "bhavcopyTradeDate": "2026-09-30"
 }
