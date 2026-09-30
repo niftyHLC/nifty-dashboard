@@ -151,14 +151,79 @@ def atm50(x):
     Example: underlying between 23150 and 23200 -> 23150.
     """
     return int(math.floor(float(x) / 50.0) * 50)
-def iv_tv_reference_strike(spot):
-    """Choose the first 50-point strike at or above spot.
+def iv_tv_reference_strike(spot, data=None):
+    """Nearest listed 50-point ATM strike; choose smaller on an exact tie.
 
-    Example: spot 22642.20 -> highlighted pair 22650/22700 -> 22650.
-    This uses spot as a proxy; the Upstox response does not expose NSE row colors.
+    NSE shading indicates the ATM/ITM/OTM boundary, not an API color field.
+    Only strikes actually returned by Upstox for the selected expiry qualify.
     """
-    return int(math.ceil(float(spot) / 50.0) * 50)
+    rows = (data or {}).get("records", {}).get("data", [])
+    available = set()
+    for row in rows:
+        try:
+            strike = float(row.get("strikePrice", 0))
+            if strike > 0 and strike % 50 == 0:
+                available.add(int(strike))
+        except (ValueError, TypeError):
+            continue
+    if not available:
+        return None
+    return min(available, key=lambda strike: (abs(strike - float(spot)), strike))
 
+
+
+def nse_boundary_selection(spot, data, trade_day):
+    """Return (selected_strike, verification) without claiming unobserved NSE colors.
+
+    Optional trusted NSE observation:
+      NSE_PUT_FIRST_ITM_STRIKE = first shaded PUT-side strike (e.g. 22700)
+      NSE_BOUNDARY_TRADE_DATE = YYYY-MM-DD, the trading date of that observation.
+    Both are required. Without them, retain an explicitly UNVERIFIED approximation.
+    """
+    rows = (data or {}).get("records", {}).get("data", [])
+    strikes = sorted({
+        int(float(row["strikePrice"]))
+        for row in rows
+        if float(row.get("strikePrice", 0) or 0) > 0
+        and float(row["strikePrice"]) % 50 == 0
+    })
+    if not strikes:
+        return None, {"status": "UNAVAILABLE", "method": "NO_LISTED_STRIKES"}
+
+    observed = os.environ.get("NSE_PUT_FIRST_ITM_STRIKE", "").strip()
+    observed_day = os.environ.get("NSE_BOUNDARY_TRADE_DATE", "").strip()
+    expected_day = trade_day.strftime("%Y-%m-%d")
+
+    if observed or observed_day:
+        if not observed or observed_day != expected_day:
+            return None, {
+                "status": "INVALID_OBSERVATION",
+                "reason": "Both NSE variables are required and the observation date must match the trade date."
+            }
+        try:
+            first_shaded = int(float(observed))
+            index = strikes.index(first_shaded)
+            if index == 0:
+                raise ValueError("No preceding strike available")
+            selected = strikes[index - 1]
+            if first_shaded - selected != 50:
+                raise ValueError("Boundary strikes are not 50 points apart")
+        except (ValueError, IndexError) as exc:
+            return None, {"status": "INVALID_OBSERVATION", "reason": str(exc)}
+        return selected, {
+            "status": "VERIFIED_FROM_PROVIDED_NSE_BOUNDARY",
+            "method": "PRECEDING_ROW_OF_NSE_PUT_FIRST_ITM",
+            "firstShadedPutStrike": first_shaded,
+            "observationTradeDate": expected_day,
+            "source": "USER_SUPPLIED_NSE_BOUNDARY"
+        }
+
+    selected = iv_tv_reference_strike(spot, data=data)
+    return selected, {
+        "status": "UNVERIFIED",
+        "method": "NEAREST_AVAILABLE_UPSTOX_STRIKE",
+        "reason": "No dated NSE boundary observation was supplied; visual match cannot be guaranteed."
+    }
 
 def atm100(x): return int(round(float(x) / 100) * 100)
 
@@ -204,7 +269,9 @@ def live_iv(strike, expiry, kind, price=0, spot=0, data=None):
 
 def time_value(spot, expiry, bhav=None, data=None, reference_strike=None):
     """TV = (common IV/TV strike + 50 CE LTP) + (strike - 50 PE LTP)."""
-    atm = iv_tv_reference_strike(spot) if reference_strike is None else int(reference_strike)
+    atm = iv_tv_reference_strike(spot, data=data) if reference_strike is None else int(reference_strike)
+    if atm is None:
+        return {"total": 0.0, "ceStrike": None, "ceLtp": 0.0, "peStrike": None, "peLtp": 0.0}
     ce_strike, pe_strike = atm + 50, atm - 50
     ce_ltp = pe_ltp = 0.0
     data = data or nse_data(expiry=expiry)
@@ -637,8 +704,7 @@ def process(spot, hi, lo):
         if ce0 > 0 and pe0 > 0 and abs(ce0-pe0) < mindiff:
             mindiff, hlc = abs(ce0-pe0), s
 
-    ivatm, s1, s2 = iv_tv_reference_strike(spot), atm100(spot), hlc
-    print(f"IV/TV reference strike: {ivatm} (spot={spot}; next strike={ivatm + 50})")
+    s1, s2 = atm100(spot), hlc
     ce, pe = dominance(wb.get((hlc,"CE"))), dominance(wb.get((hlc,"PE")))
 
     # Fetch Upstox Option Chain once.
@@ -648,6 +714,13 @@ def process(spot, hi, lo):
         message = "Data Not Ready Yet - Upstox Option Chain is unavailable."
         print("WAITING:", message, "Will retry in 5 minutes.")
         return mark_waiting(message, spot, trade_day)
+
+    ivatm, boundary_verification = nse_boundary_selection(spot, option_chain, trade_day)
+    if ivatm is None:
+        message = "Data Not Ready Yet - IV/TV boundary unavailable: " + str(boundary_verification)
+        print("WAITING:", message)
+        return mark_waiting(message, spot, trade_day)
+    print(f"IV/TV reference strike: {ivatm}; NSE boundary verification: {boundary_verification}")
 
     # IV: use the common IV/TV reference strike and weekly expiry.
     ce["iv"] = live_iv(ivatm, wexp, "CE", data=option_chain)
@@ -694,6 +767,7 @@ def process(spot, hi, lo):
         "dataStatus":"SUCCESS", "bhavcopyReady":True,
         "currentDate":display_date(t), "expiryDate":wexp.strftime("%Y-%m-%d"),
         "spotPrice":spot, "hlcAtmStrike":hlc, "ivAtmStrike":ivatm,
+        "ivTvBoundaryVerification":boundary_verification,
         "ce":ce, "pe":pe, "ceTag":ce["dominance"], "ceClass":ce["tagClass"],
         "peTag":pe["dominance"], "peClass":pe["tagClass"],
         "bannerTotal": round(abs(ce["close"] - pe["close"]), 2),
