@@ -714,7 +714,7 @@ def process(spot, hi, lo):
         if ce0 > 0 and pe0 > 0 and abs(ce0-pe0) < mindiff:
             mindiff, hlc = abs(ce0-pe0), s
 
-    s1, s2 = atm100(spot), hlc
+    s1 = atm100(spot)
     ce, pe = dominance(wb.get((hlc,"CE"))), dominance(wb.get((hlc,"PE")))
 
     # Fetch Upstox Option Chain once.
@@ -759,7 +759,6 @@ def process(spot, hi, lo):
         return mark_waiting(message, spot, trade_day)
     get = lambda s,k: wb.get((s,k),{}).get("close",0)
     s1v = round((get(s1+100,"CE")+get(s1-100,"PE"))/2,2)
-    s2v = round((get(s2+100,"CE")+get(s2-100,"PE"))/2,2)
 
     mins = round(hlc+ce["close"],2)
     mind = round(hlc-pe["close"],2)
@@ -792,11 +791,6 @@ def process(spot, hi, lo):
             "strike":s1,"ce":get(s1,"CE"),"pe":get(s1,"PE"),
             "otmCeStrike":s1+100,"otmPeStrike":s1-100,
             "otmCe":get(s1+100,"CE"),"otmPe":get(s1-100,"PE"),"value":s1v
-        },
-        "sniper2":None if s1==s2 else {
-            "strike":s2,"ce":get(s2,"CE"),"pe":get(s2,"PE"),
-            "otmCeStrike":s2+100,"otmPeStrike":s2-100,
-            "otmCe":get(s2+100,"CE"),"otmPe":get(s2-100,"PE"),"value":s2v
         },
         "optionRowsParsed": option_rows,
         "bhavcopyTradeDate": trade_day.strftime("%Y-%m-%d")
