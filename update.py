@@ -584,7 +584,17 @@ def dominance(d):
     d = d or {}
     c = d.get("close", 0); h = d.get("high", 0) or c; l = d.get("low", 0) or c
     hc, cl = round(h-c, 2), round(c-l, 2)
-    dom = "BUYERS" if cl >= 1.5*hc and h != l else "SELLERS" if hc >= 1.5*cl and h != l else "NEUTRAL"
+
+    # If H-C OR C-L is 35.00 points or more, force NEUTRAL.
+    if hc >= 35 or cl >= 35:
+        dom = "NEUTRAL"
+    elif cl >= 1.5*hc and h != l:
+        dom = "BUYERS"
+    elif hc >= 1.5*cl and h != l:
+        dom = "SELLERS"
+    else:
+        dom = "NEUTRAL"
+
     color, tag = {"BUYERS":("green","tag-buyers"), "SELLERS":("red","tag-sellers"),
                   "NEUTRAL":("orange","tag-neutral")}[dom]
     return {
