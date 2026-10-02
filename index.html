@@ -185,16 +185,6 @@
         <div class="sniper-val" id="snip1Val">0.00</div>
     </div>
 
-    <!-- Added id="sniper2Card" below -->
-    <div class="sniper-card" id="sniper2Card">
-        <div class="sniper-content-wrapper">
-            <div class="sniper-tag">SNIPER ATM (HLC MATCH)</div>
-            <div class="sniper-text-main"><span id="snip2Atm">-----</span> CE <span id="snip2Ce">0.00</span> <span class="pipe">|</span> PE <span id="snip2Pe">0.00</span></div>
-            <div class="sniper-sub-text">OTM <span id="snip2OtmCeStr">0</span> CE <span id="snip2OtmCe">0.00</span> <span class="pipe">|</span> <span id="snip2OtmPeStr">0</span> PE <span id="snip2OtmPe">0.00</span></div>
-        </div>
-        <div class="sniper-val" id="snip2Val">0.00</div>
-    </div>
-
     <div class="earth-card">
         <div style="font-weight: 700; font-size: 0.85rem; color: #f8fafc;">🌏 EARTH</div>
         <div class="sniper-val" style="color: #38bdf8;" id="earthVal">0.00</div>
@@ -316,8 +306,6 @@
         };
 
         setSniper(1, data.sniper1);
-        const s2Card = document.getElementById('sniper2Card');
-        if (data.sniper2) { s2Card.style.display = 'flex'; setSniper(2, data.sniper2); } else { s2Card.style.display = 'none'; }
 
         document.getElementById('earthVal').innerText = (Number(data.earthLevel ?? data.earth) || 0).toFixed(2);
     }
