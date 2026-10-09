@@ -1,6 +1,6 @@
 {
-    "dataStatus": "SUCCESS",
-    "bhavcopyReady": true,
+    "dataStatus": "WAITING",
+    "bhavcopyReady": false,
     "currentDate": "09 OCT 2026",
     "expiryDate": "2026-10-13",
     "spotPrice": 22231.80078125,
@@ -87,5 +87,8 @@
         "value": 98.55
     },
     "optionRowsParsed": 1872,
-    "bhavcopyTradeDate": "2026-10-08"
+    "bhavcopyTradeDate": "2026-10-08",
+    "waitingMessage": "Data Not Ready Yet - NSE Bhavcopy is not available/valid yet.",
+    "waitingTradeDate": "2026-10-09",
+    "waitingSince": "2026-10-09T15:35:45.925547+05:30"
 }
