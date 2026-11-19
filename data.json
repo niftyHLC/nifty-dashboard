@@ -1,34 +1,34 @@
 {
-    "dataStatus": "WAITING",
-    "bhavcopyReady": false,
-    "currentDate": "19 NOV 2026",
+    "dataStatus": "SUCCESS",
+    "bhavcopyReady": true,
+    "currentDate": "20 NOV 2026",
     "expiryDate": "2026-11-23",
-    "spotPrice": 25227.94921875,
-    "hlcAtmStrike": 25250,
-    "ivAtmStrike": 25250,
+    "spotPrice": 25514.30078125,
+    "hlcAtmStrike": 25550,
+    "ivAtmStrike": 25500,
     "ivTvBoundaryVerification": {
         "status": "UNVERIFIED",
         "method": "NEAREST_AVAILABLE_UPSTOX_STRIKE",
         "reason": "No dated NSE boundary observation was supplied; visual match cannot be guaranteed."
     },
     "ce": {
-        "high": 252.7,
-        "close": 161.45,
-        "low": 125.7,
-        "iv": 13.87,
-        "hc": 91.25,
-        "cl": 35.75,
+        "high": 135.85,
+        "close": 124.6,
+        "low": 24.6,
+        "iv": 12.33,
+        "hc": 11.25,
+        "cl": 100.0,
         "dominance": "NEUTRAL",
         "themeColor": "orange",
         "tagClass": "tag-neutral"
     },
     "pe": {
-        "high": 235.9,
-        "close": 170.0,
-        "low": 129.0,
-        "iv": 13.92,
-        "hc": 65.9,
-        "cl": 41.0,
+        "high": 485.7,
+        "close": 145.45,
+        "low": 133.0,
+        "iv": 12.76,
+        "hc": 340.25,
+        "cl": 12.45,
         "dominance": "NEUTRAL",
         "themeColor": "orange",
         "tagClass": "tag-neutral"
@@ -37,52 +37,49 @@
     "ceClass": "tag-neutral",
     "peTag": "NEUTRAL",
     "peClass": "tag-neutral",
-    "bannerTotal": 8.55,
+    "bannerTotal": 20.85,
     "asymmetricTimeValue": {
-        "total": 279.15,
-        "ceStrike": 25300,
-        "ceLtp": 128.65,
-        "peStrike": 25200,
-        "peLtp": 150.5
+        "total": 226.45,
+        "ceStrike": 25550,
+        "ceLtp": 135.85,
+        "peStrike": 25450,
+        "peLtp": 90.6
     },
-    "minSupply": 25411.45,
-    "minDemand": 25080.0,
-    "maxSupply": 25581.45,
-    "maxDemand": 24918.55,
+    "minSupply": 25674.6,
+    "minDemand": 25404.55,
+    "maxSupply": 25820.05,
+    "maxDemand": 25279.95,
     "sellersArea": {
-        "min": 25411.45,
-        "max": 25581.45,
+        "min": 25674.6,
+        "max": 25820.05,
         "validUnbrokenHighs": []
     },
     "buyersArea": {
-        "min": 25080.0,
-        "max": 24918.55
+        "min": 25404.55,
+        "max": 25279.95
     },
     "weeklyZones": {
-        "line1": 25531.6,
-        "line2": 24964.5
+        "line1": 25771.05,
+        "line2": 25326.0
     },
     "monthlyZones": {
-        "line1": 25531.6,
-        "line2": 24964.5
+        "line1": 25771.05,
+        "line2": 25326.0
     },
-    "spotHigh": 25390.80078125,
-    "spotLow": 25141.80078125,
-    "spotDifference": 249.0,
-    "earthLevel": 65.01,
+    "spotHigh": 25514.30078125,
+    "spotLow": 25104.80078125,
+    "spotDifference": 409.5,
+    "earthLevel": 106.92,
     "sniper1": {
-        "strike": 25200,
-        "ce": 186.3,
-        "pe": 145.3,
-        "otmCeStrike": 25300,
-        "otmPeStrike": 25100,
-        "otmCe": 138.2,
-        "otmPe": 104.2,
-        "value": 121.2
+        "strike": 25500,
+        "ce": 149.9,
+        "pe": 121.15,
+        "otmCeStrike": 25600,
+        "otmPeStrike": 25400,
+        "otmCe": 101.9,
+        "otmPe": 81.35,
+        "value": 91.62
     },
-    "optionRowsParsed": 2100,
-    "bhavcopyTradeDate": "2026-11-18",
-    "waitingMessage": "Data Not Ready Yet - NSE Bhavcopy is not available/valid yet.",
-    "waitingTradeDate": "2026-11-19",
-    "waitingSince": "2026-11-19T15:35:39.153230+05:30"
+    "optionRowsParsed": 2106,
+    "bhavcopyTradeDate": "2026-11-19"
 }
